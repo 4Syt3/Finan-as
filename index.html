@@ -491,6 +491,7 @@ function viewMovs(){
       <option value="rec" ${f.fEstado==="rec"?"selected":""}>Só entradas</option>
     </select>
     <button id="fclear">Limpar</button>
+    <button id="fsel" class="${S.ui.selMode?"primary":""}">${S.ui.selMode?"✓ Selecionar":"Selecionar"}</button>
     <button id="fnovo" class="primary">+ Movimento</button>
   </div>
   <div class="wrap"><div id="mvsum" class="card"></div></div>
@@ -501,6 +502,7 @@ function viewMovs(){
     S.ui.fTag=document.getElementById("ftag").value; S.ui.fEstado=document.getElementById("festado").value;
     save(); listar(); };
   ["fq","fcat","fconta","ftag","festado"].forEach(id=>{ const el=document.getElementById(id); el.oninput=upd; el.onchange=upd; });
+  document.getElementById("fsel").onclick=()=>{ S.ui.selMode=!S.ui.selMode; S.ui.sel=[]; save(); render(); };
   document.getElementById("fnovo").onclick=()=>novoMovimento(S.ui.fConta&&S.ui.fConta!=="(todas)"?S.ui.fConta:null);
   document.getElementById("fclear").onclick=()=>{ S.ui.fQ="";S.ui.fCat="(todas)";S.ui.fConta="(todas)";S.ui.fTag="(todas)";S.ui.fEstado=""; save(); render(); };
   listar();
@@ -524,8 +526,14 @@ function filtrados(){
 function listar(){
   const ms=filtrados();
   const t=totais(ms.flatMap(m=>componentes(m)));
-  document.getElementById("mvsum").innerHTML=`<div class="row"><div>${ms.length} movimentos</div>
-    <div class="sm"><span class="pos">${EUR0(t.rec)}</span> · <span class="neg">${EUR0(t.desp+t.rever)}</span></div></div>`;
+  const sel=S.ui.sel||[];
+  document.getElementById("mvsum").innerHTML = S.ui.selMode
+    ? `<div class="row"><div><b>${sel.length}</b> selecionados</div>
+        <div class="sm">${EUR(ms.filter(m=>sel.includes(m.id)).reduce((a,m)=>a+m.valor,0))}</div></div>
+       <div class="bar"><button class="primary" id="bcls">Classificar</button><button id="btag">Tag</button>
+         <button id="btodos">Todos (${ms.length})</button><button id="bnada">Nenhum</button></div>`
+    : `<div class="row"><div>${ms.length} movimentos</div>
+        <div class="sm"><span class="pos">${EUR0(t.rec)}</span> · <span class="neg">${EUR0(t.desp+t.rever)}</span></div></div>`;
   let html="", dia="";
   for(const m of ms.slice(0,600)){
     if(m.data!==dia){ dia=m.data; html+=`</div><div class="daysep">${fdate(dia)}</div><div class="list">`; }
@@ -536,7 +544,10 @@ function listar(){
       reembParts(m).length?`<span class="badge">reembolso de ${reembParts(m).length}</span>`:"",
       (m.valor<0&&rb>0.005)?`<span class="badge">líquido ${EUR(m.valor+rb)}</span>`:"",
       (m.env&&m.env.length)?`<span class="badge">envelope</span>`:""].join("");
-    html+=`<div class="mv" data-id="${m.id}"><div class="d">
+    const marcado=S.ui.selMode && (S.ui.sel||[]).includes(m.id);
+    html+=`<div class="mv" data-id="${m.id}" style="${marcado?"background:var(--chip)":""}">
+      ${S.ui.selMode?`<div style="width:22px;flex:0 0 22px;font-size:17px">${marcado?"☑":"☐"}</div>`:""}
+      <div class="d">
       <div class="t">${esc(m.desc)}</div>
       <div class="sm mut">${esc(nv)}${(comp.length===1&&m.sub)?" · "+esc(m.sub):""} · ${esc(m.conta)}</div>
       <div>${tags}</div></div>
@@ -544,7 +555,20 @@ function listar(){
   }
   html=html.replace(/^<\/div>/,"")+"</div>";
   document.getElementById("mvlist").innerHTML=html + (ms.length>600?`<div class="hint">A mostrar os 600 mais recentes.</div>`:"");
-  document.querySelectorAll(".mv").forEach(d=>d.onclick=()=>detalhe(d.dataset.id));
+  document.querySelectorAll(".mv").forEach(d=>d.onclick=()=>{
+    if(!S.ui.selMode){ detalhe(d.dataset.id); return; }
+    S.ui.sel=S.ui.sel||[];
+    const i=S.ui.sel.indexOf(d.dataset.id);
+    if(i>=0) S.ui.sel.splice(i,1); else S.ui.sel.push(d.dataset.id);
+    save(); listar();
+  });
+  if(S.ui.selMode){
+    const ids=ms.map(m=>m.id);
+    document.getElementById("btodos").onclick=()=>{ S.ui.sel=ids.slice(); save(); listar(); };
+    document.getElementById("bnada").onclick=()=>{ S.ui.sel=[]; save(); listar(); };
+    document.getElementById("bcls").onclick=()=>classificarVarios();
+    document.getElementById("btag").onclick=()=>tagVarios();
+  }
 }
 function grupos(){ const g=[]; S.categorias.forEach(c=>{ const n=c.n1||"Por classificar"; if(!g.includes(n)) g.push(n); }); return g; }
 function catsDe(n1){ return S.categorias.filter(c=>(c.n1||"Por classificar")===n1).map(c=>c.nome); }
@@ -579,6 +603,38 @@ function opcoesSub(cat){ return subsDe(cat).map(x=>`<option>${esc(x)}</option>`)
 function tagsExistentes(){ const s=new Set(); S.movimentos.forEach(m=>{ if(m.tag) s.add(m.tag); }); S.tags.forEach(t=>s.add(t)); return [...s].sort(); }
 
 /* ---------- detalhe do movimento ---------- */
+function classificarVarios(){
+  const sel=S.ui.sel||[]; if(!sel.length){ alert("Selecione primeiro os movimentos."); return; }
+  openSheet(`<h2 style="margin:0 0 4px">Classificar ${sel.length} movimentos</h2>
+    <div class="hint">A categoria escolhida fica como classificação manual em todos os selecionados.</div>
+    ${selGrupoCat("bn1","bcat","bsubl")}
+    <label>Subcategoria</label><input type="text" id="bsub" list="bsubl" placeholder="opcional">
+    <datalist id="bsubl"></datalist>
+    <div class="bar"><button class="primary" id="bok">Aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  ligarGrupoCat("bn1","bcat","bsubl");
+  document.getElementById("bok").onclick=()=>{
+    const cat=document.getElementById("bcat").value, sub=document.getElementById("bsub").value.trim();
+    const noutras=subsNoutras(sub,cat);
+    if(noutras.length && !subsDe(cat).some(x=>x.toLowerCase()===sub.toLowerCase())){
+      if(!confirm("A subcategoria \""+sub+"\" já existe em: "+noutras.join(", ")+".\nContinuar?")) return;
+    }
+    let n=0;
+    sel.forEach(id=>{ const m=byId(id); if(!m) return; m.cat=cat; m.sub=sub; m.manual=true; n++; });
+    S.ui.sel=[]; save(); closeSheet(); render(); alert(n+" movimentos classificados.");
+  };
+}
+function tagVarios(){
+  const sel=S.ui.sel||[]; if(!sel.length){ alert("Selecione primeiro os movimentos."); return; }
+  openSheet(`<h2 style="margin:0 0 4px">Tag em ${sel.length} movimentos</h2>
+    <label>Tag</label><input type="text" id="btg" list="tagl2" placeholder="ex.: Férias 2026">
+    <datalist id="tagl2">${tagsExistentes().map(x=>`<option>${esc(x)}</option>`).join("")}</datalist>
+    <div class="bar"><button class="primary" id="btok">Aplicar</button><button id="btlimpar">Retirar tag</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  const aplicar=v=>{ sel.forEach(id=>{ const m=byId(id); if(m) m.tag=v; });
+    if(v && !S.tags.includes(v)) S.tags.push(v);
+    S.ui.sel=[]; save(); closeSheet(); render(); };
+  document.getElementById("btok").onclick=()=>{ const v=document.getElementById("btg").value.trim(); if(!v) return; aplicar(v); };
+  document.getElementById("btlimpar").onclick=()=>aplicar("");
+}
 function detalhe(id){
   const m=byId(id); if(!m) return;
   const c=contaDe(m.conta);
