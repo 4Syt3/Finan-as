@@ -120,8 +120,14 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 <script>
 const SEED = {"cats":[{"nome":"Crédito habitação","tipo":"Despesa","n1":"Casa"},{"nome":"Condomínio","tipo":"Despesa","n1":"Casa"},{"nome":"Eletricidade e gás","tipo":"Despesa","n1":"Casa"},{"nome":"Água","tipo":"Despesa","n1":"Casa"},{"nome":"Telecomunicações","tipo":"Despesa","n1":"Casa"},{"nome":"Supermercado","tipo":"Despesa","n1":"Casa"},{"nome":"Manutenção","tipo":"Despesa","n1":"Casa"},{"nome":"Educação","tipo":"Despesa","n1":"Filhos"},{"nome":"Vestuário e atividades","tipo":"Despesa","n1":"Filhos"},{"nome":"Consultas","tipo":"Despesa","n1":"Saúde"},{"nome":"Farmácia","tipo":"Despesa","n1":"Saúde"},{"nome":"Dentista e ótica","tipo":"Despesa","n1":"Saúde"},{"nome":"Combustível e portagens","tipo":"Despesa","n1":"Transportes"},{"nome":"Outros transportes","tipo":"Despesa","n1":"Transportes"},{"nome":"Restauração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Lazer e viagens","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Casa e decoração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Compras","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Vestuário","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Subscrições","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Desporto","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Cuidados pessoais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Animais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Seguros","tipo":"Despesa","n1":"Encargos"},{"nome":"Impostos e Estado","tipo":"Despesa","n1":"Encargos"},{"nome":"Quotas e associações","tipo":"Despesa","n1":"Encargos"},{"nome":"Comissões bancárias","tipo":"Despesa","n1":"Encargos"},{"nome":"Enviadas a particulares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Familiares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Levantamentos","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Ordenados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Juros","tipo":"Receita","n1":"Rendimentos"},{"nome":"Reembolsos não associados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros rendimentos","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros","tipo":"Despesa","n1":"Por classificar"},{"nome":"Poupança e investimentos","tipo":"Transferência interna","n1":"—"},{"nome":"Transferência interna","tipo":"Transferência interna","n1":"—"}],"rules":[],"accounts":[],"movimentos":[]};
 const KEY = "financas.v1";
-const EUR = v => (v<0?"−":"") + Math.abs(v).toLocaleString("pt-PT",{minimumFractionDigits:2,maximumFractionDigits:2}) + " €";
-const EUR0 = v => (v<0?"−":"") + Math.abs(v).toLocaleString("pt-PT",{maximumFractionDigits:0}) + " €";
+function fmtEuro(v,dec){
+  const n=Number(v)||0, neg=n<0;
+  const s=Math.abs(n).toFixed(dec), p=s.split(".");
+  const inteiro=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  return (neg?"−":"")+inteiro+(p[1]?","+p[1]:"")+" €";
+}
+const EUR = v => fmtEuro(v,2);
+const EUR0 = v => fmtEuro(v,0);
 const uid = p => p + Math.random().toString(36).slice(2,9);
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
@@ -354,6 +360,13 @@ function saldoConta(c){
   for(const m of S.movimentos) if(m.conta===c.nome && m.data>desde) s+=m.valor;
   return s;
 }
+function saldoContaAte(c,data){
+  if(!c || c.saldoInicial==null) return null;
+  const desde=c.saldoData||"0000-01-01";
+  let s=c.saldoInicial;
+  for(const m of S.movimentos) if(m.conta===c.nome && m.data>desde && m.data<=data) s+=m.valor;
+  return s;
+}
 function envSaldo(e){
   let s = e.saldoInicial||0;
   for(const m of S.movimentos) for(const a of (m.env||[])) if(a.env===e.id) s += a.valor;
@@ -432,11 +445,13 @@ function viewGeral(){
       <div class="v ${s<0?"neg":""}">${s===null?'<span class="sm mut">definir saldo</span>':EUR(s)} ›</div></div></div>`; };
   const disp=S.contas.filter(c=>!aplicada(c)), apl=S.contas.filter(aplicada);
   const soma=l=>l.reduce((t,c)=>{ const s=saldoConta(c); return t+(s||0); },0);
-  const contasHtml=`${disp.map(linhaConta).join("")}
-    ${disp.length?`<div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px"><div class="sm mut">Disponível</div><div class="v">${EUR(soma(disp))}</div></div>`:""}
-    ${apl.length?`<div class="sm mut" style="margin:12px 0 2px">Aplicado</div>${apl.map(linhaConta).join("")}
-      <div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px"><div class="sm mut">Aplicado</div><div class="v">${EUR(soma(apl))}</div></div>`:""}
-    ${(disp.length&&apl.length)?`<div class="row" style="border-top:2px solid var(--line);padding-top:8px;margin-top:6px"><div><b>Total</b></div><div class="v"><b>${EUR(soma(disp)+soma(apl))}</b></div></div>`:""}`;
+  const subtot=(rot,val)=>`<div class="row" style="border-top:1px solid var(--line);padding:10px 0 2px;margin-top:6px">
+      <div style="font-weight:600">${rot}</div><div class="v" style="font-size:17px;font-weight:650">${EUR(val)}</div></div>`;
+  const contasHtml=`${disp.length?`<div class="sm mut" style="margin-bottom:2px">Disponível</div>`:""}${disp.map(linhaConta).join("")}
+    ${disp.length?subtot("Disponível",soma(disp)):""}
+    ${apl.length?`<div class="sm mut" style="margin:16px 0 2px">Aplicado</div>${apl.map(linhaConta).join("")}${subtot("Aplicado",soma(apl))}`:""}
+    ${(disp.length&&apl.length)?`<div class="row" style="border-top:2px solid var(--accent);padding:12px 0 2px;margin-top:8px">
+      <div style="font-weight:700;font-size:16px">Total</div><div class="v" style="font-size:20px;font-weight:700">${EUR(soma(disp)+soma(apl))}</div></div>`:""}`;
   const envHtml = S.envelopes.length? S.envelopes.map(e=>`<div class="row" style="padding:6px 0"><div>${esc(e.nome)}</div><div class="v">${EUR(envSaldo(e))}</div></div>`).join("")
     : `<div class="sm mut">Sem envelopes. Crie no separador Envelopes.</div>`;
   const max=Math.max(...Object.values(nv.n1),1);
@@ -614,8 +629,29 @@ function listar(){
         <div class="sm">${EUR(ms.filter(m=>sel.includes(m.id)).reduce((a,m)=>a+m.valor,0))}</div></div>
        <div class="bar"><button class="primary" id="bcls">Classificar</button><button id="btag">Tag</button>
          <button id="btodos">Todos (${ms.length})</button><button id="bnada">Nenhum</button></div>`
-    : `<div class="row"><div>${ms.length} movimentos</div>
-        <div class="sm"><span class="pos">${EUR0(t.rec)}</span> · <span class="neg">${EUR0(t.desp+t.rever)}</span></div></div>`;
+    : (()=>{ const ent=ms.filter(m=>m.valor>0).reduce((a,m)=>a+m.valor,0);
+             const sai=ms.filter(m=>m.valor<0).reduce((a,m)=>a+m.valor,0);
+             const interno=ms.some(m=>tipoBase(m)==="Transferência interna");
+             const [pa,pb]=periodo();
+             const contas=S.ui.fContas||[];
+             let linhaSaldo="";
+             if(contas.length===1){
+               const c=contaDe(contas[0]);
+               if(c && c.saldoInicial!=null){
+                 const ini=saldoContaAte(c,pa)-(S.movimentos.filter(m=>m.conta===c.nome&&m.data===pa).reduce((a,m)=>a+m.valor,0));
+                 const fim=saldoContaAte(c,pb);
+                 const etq=c.tipo==="Cartão de crédito"?"Em dívida":"Saldo";
+                 linhaSaldo=`<div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
+                   <div class="sm mut">${etq} no início</div><div class="v sm">${EUR(ini)}</div></div>
+                   <div class="row"><div class="sm"><b>${etq} no fim do período</b></div><div class="v"><b>${EUR(fim)}</b></div></div>`;
+               } else {
+                 linhaSaldo=`<div class="sm mut" style="margin-top:6px">Defina o saldo desta conta em Contas para ver o saldo acumulado.</div>`;
+               }
+             }
+      return `<div class="row"><div>${ms.length} movimentos</div>
+        <div class="sm"><span class="pos">${EUR0(ent)}</span> · <span class="neg">${EUR0(sai)}</span> · <b>${EUR0(ent+sai)}</b></div></div>
+        <div class="sm mut" style="margin-top:4px">Receitas ${EUR0(t.rec)} · Despesas ${EUR0(t.desp+t.rever)}${interno?" · o resto são transferências internas":""}</div>
+        ${linhaSaldo}`;})();
   let html="", dia="";
   for(const m of ms.slice(0,600)){
     if(m.data!==dia){ dia=m.data; html+=`</div><div class="daysep">${fdate(dia)}</div><div class="list">`; }
@@ -624,6 +660,7 @@ function listar(){
     const rb=reembolsadoDe(m.id);
     const tags=[m.tag?`<span class="badge">${esc(m.tag)}</span>`:"",
       reembParts(m).length?`<span class="badge">reembolso de ${reembParts(m).length}</span>`:"",
+      (m.par&&byId(m.par))?`<span class="badge">↔ ${esc(byId(m.par).conta)}</span>`:"",
       (m.valor<0&&rb>0.005)?`<span class="badge">líquido ${EUR(m.valor+rb)}</span>`:"",
       (m.env&&m.env.length)?`<span class="badge">envelope</span>`:""].join("");
     const marcado=S.ui.selMode && (S.ui.sel||[]).includes(m.id);
@@ -750,6 +787,11 @@ function detalhe(id){
         <div style="text-align:right"><div class="v">${EUR(r.valor)}</div><button data-rm="${i}" style="height:30px;line-height:28px;font-size:13px;padding:0 10px">remover</button></div></div>`;}).join("")}
       ${Math.abs(sobra)>0.005?`<div class="sm mut" style="margin-top:6px">Por atribuir: ${EUR(sobra)} (fica em ${esc(m.cat)})</div>`:""}
       <div class="bar"><button id="dreemb2">Acrescentar despesa…</button></div></div>`:""}
+    ${(()=>{ const p=m.par?byId(m.par):null;
+      if(p) return `<div class="card" style="margin-top:12px"><div class="sm mut">Transferência ligada</div>
+        <div>${esc(p.desc)}</div><div class="sm mut">${fdate(p.data)} · ${esc(p.conta)} · ${EUR(p.valor)}</div>
+        <div class="bar"><button id="unpar">Desligar</button></div></div>`;
+      return `<div class="bar" style="margin-top:12px"><button id="dpar">Ligar a transferência noutra conta…</button></div>`;})()}
     ${(m.valor<0&&recebido>0.005)?`<div class="card" style="margin-top:12px"><div class="row"><div class="sm mut">Reembolsos recebidos</div><div class="v">${EUR(recebido)}</div></div>
       <div class="row"><div class="sm mut">Custo líquido</div><div class="v">${EUR(m.valor+recebido)}</div></div></div>`:""}
 
@@ -784,11 +826,32 @@ function detalhe(id){
   };
   document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ m.reemb.splice(+b.dataset.rm,1); save(); detalhe(m.id); render(); });
   const rb2=document.getElementById("dreemb2"); if(rb2) rb2.onclick=()=>escolherDespesa(m);
+  const up=document.getElementById("unpar"); if(up) up.onclick=()=>{ const p=byId(m.par); if(p) p.par=null; m.par=null; save(); detalhe(m.id); render(); };
+  const dp=document.getElementById("dpar"); if(dp) dp.onclick=()=>ligarTransferencia(m);
   const cr=document.getElementById("drule"); if(cr) cr.onclick=()=>criarRegra(m);
   const ib=document.getElementById("impB"); if(ib) ib.onclick=()=>imputar(m);
   const pb=document.getElementById("propB"); if(pb) pb.onclick=()=>{ repartirProporcional(m); };
 }
 
+function ligarTransferencia(m){
+  const cand=S.movimentos.filter(x=> x.id!==m.id && !x.par && x.conta!==m.conta
+      && Math.abs(x.valor + m.valor) < 0.015 && Math.abs(dias(x.data,m.data))<=7)
+    .sort((a,b)=> Math.abs(dias(a.data,m.data))-Math.abs(dias(b.data,m.data)));
+  openSheet(`<h2 style="margin:0 0 4px">Ligar transferência</h2>
+    <div class="hint">${EUR(m.valor)} em ${fdate(m.data)}, ${esc(m.conta)}. Mostra movimentos de valor simétrico noutras contas, até 7 dias de diferença.
+    Ao ligar, os dois passam a Transferência interna e deixam de contar como receita ou despesa.</div>
+    <div class="list">${cand.slice(0,30).map(x=>`<div class="mv" data-t="${x.id}"><div class="d">
+      <div class="t">${esc(x.desc)}</div><div class="sm mut">${fdate(x.data)} · ${esc(x.conta)} · ${esc(x.cat)}</div></div>
+      <div class="v ${x.valor<0?"neg":"pos"}">${EUR(x.valor)}</div></div>`).join("")||'<div class="hint">Sem movimentos simétricos noutras contas nesse intervalo. Confirme se o extrato da outra conta já foi importado.</div>'}</div>
+    <div class="bar"><button onclick="closeSheet()">Fechar</button></div>`);
+  document.querySelectorAll("[data-t]").forEach(d=>d.onclick=()=>{
+    const p=byId(d.dataset.t); if(!p) return;
+    m.par=p.id; p.par=m.id;
+    m.cat="Transferência interna"; p.cat="Transferência interna";
+    m.manual=true; p.manual=true;
+    save(); closeSheet(); detalhe(m.id); render();
+  });
+}
 function escolherDespesa(m){
   const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
   const jaUsadas=new Set((m.reemb||[]).map(r=>r.mov));
@@ -980,7 +1043,9 @@ function viewContas(){
       <div class="row"><div><b>${esc(c.nome)}</b><div class="sm mut">${esc([c.banco,c.tipo,c.titular].filter(Boolean).join(" · "))}</div></div>
       <div class="big">${s===null?'<span class="sm mut">—</span>':EUR(s)}</div></div>
       <label>Saldo em</label><input type="date" data-sd="${i}" value="${c.saldoData||""}">
-      <label>Saldo nessa data</label><input type="number" step="0.01" data-si="${i}" value="${c.saldoInicial==null?"":c.saldoInicial}" placeholder="não definido">
+      <label>${c.tipo==="Cartão de crédito"?"Valor em dívida nessa data (negativo)":"Saldo nessa data"}</label>
+      <input type="number" step="0.01" data-si="${i}" value="${c.saldoInicial==null?"":c.saldoInicial}" placeholder="não definido">
+      ${c.tipo==="Cartão de crédito"?'<div class="hint">Num cartão de crédito o saldo é o que deve: as compras somam em dívida e os pagamentos por débito direto abatem. Indique o valor em dívida numa data, com sinal negativo.</div>':""}
       <div class="bar"><button data-env="${i}" class="${c.envelopes?"primary":""}">${c.envelopes?"✓ ":""}Conta com envelopes</button>
         <button data-ec="${i}">Editar</button><button data-nm="${esc(c.nome)}">Lançar movimento</button></div>
       <div class="hint">${c.envelopes?"Nesta conta a app pede o envelope em cada movimento.":"Nesta conta não são pedidos envelopes."}</div>
