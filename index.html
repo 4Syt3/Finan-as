@@ -805,6 +805,7 @@ function detalhe(id){
       <button class="primary" id="dsave">Guardar</button>
 
       <button id="drule">Criar regra</button>
+      <button id="ddel">Apagar</button>
       <button onclick="closeSheet()">Fechar</button>
     </div>
     <div class="hint">A categoria que escolher aqui prevalece sempre sobre as regras.</div>
@@ -829,10 +830,60 @@ function detalhe(id){
   const up=document.getElementById("unpar"); if(up) up.onclick=()=>{ const p=byId(m.par); if(p) p.par=null; m.par=null; save(); detalhe(m.id); render(); };
   const dp=document.getElementById("dpar"); if(dp) dp.onclick=()=>ligarTransferencia(m);
   const cr=document.getElementById("drule"); if(cr) cr.onclick=()=>criarRegra(m);
+  const dd=document.getElementById("ddel"); if(dd) dd.onclick=()=>{
+    if(!confirm("Apagar este movimento? Esta ação não se desfaz.")) return;
+    apagarMovimento(m.id); save(); closeSheet(); render(); };
   const ib=document.getElementById("impB"); if(ib) ib.onclick=()=>imputar(m);
   const pb=document.getElementById("propB"); if(pb) pb.onclick=()=>{ repartirProporcional(m); };
 }
 
+function apagarMovimento(id){
+  const m=byId(id); if(!m) return false;
+  if(m.par){ const p=byId(m.par); if(p) p.par=null; }
+  S.movimentos.forEach(x=>{ if(x.reemb&&x.reemb.length) x.reemb=x.reemb.filter(r=>r.mov!==id); });
+  S.movimentos=S.movimentos.filter(x=>x.id!==id);
+  S.ui.sel=(S.ui.sel||[]).filter(x=>x!==id);
+  return true;
+}
+function grupoDup(m){ return [m.conta,m.desc.toLowerCase().trim(),m.valor.toFixed(2)].join("|"); }
+function duplicados(){
+  const mapa={};
+  S.movimentos.forEach(m=>{ (mapa[grupoDup(m)]=mapa[grupoDup(m)]||[]).push(m); });
+  const out=[];
+  Object.values(mapa).forEach(l=>{
+    if(l.length<2) return;
+    l.sort((a,b)=>a.data<b.data?-1:1);
+    let bloco=[l[0]];
+    for(let i=1;i<l.length;i++){
+      if(Math.abs(dias(bloco[bloco.length-1].data,l[i].data))<=5) bloco.push(l[i]);
+      else { if(bloco.length>1) out.push(bloco); bloco=[l[i]]; }
+    }
+    if(bloco.length>1) out.push(bloco);
+  });
+  return out.sort((a,b)=>Math.abs(b[0].valor)-Math.abs(a[0].valor));
+}
+function verDuplicados(){
+  const gs=duplicados();
+  const total=gs.reduce((t,g)=>t+(g.length-1),0);
+  const valor=gs.reduce((t,g)=>t+g[0].valor*(g.length-1),0);
+  openSheet(`<h2 style="margin:0 0 4px">Possíveis duplicados</h2>
+    <div class="hint">${gs.length?`${gs.length} grupos, ${total} movimentos a mais, ${EUR(valor)} em jogo. Mesma conta, mesma descrição e mesmo valor, com até 5 dias de diferença. Pode haver casos legítimos, como duas compras iguais no mesmo dia.`:"Não encontrei duplicados."}</div>
+    ${gs.slice(0,40).map((g,gi)=>`<div class="card"><div class="row"><div><b>${esc(g[0].desc.slice(0,40))}</b>
+      <div class="sm mut">${esc(g[0].conta)} · ${g.length} vezes</div></div><div class="v ${g[0].valor<0?"neg":"pos"}">${EUR(g[0].valor)}</div></div>
+      ${g.map((m,i)=>`<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
+        <div class="sm">${fdate(m.data)}${i===0?' <span class="badge">manter</span>':""}</div>
+        ${i>0?`<button data-del-mv="${m.id}" style="height:30px;line-height:28px;font-size:13px;padding:0 10px">Apagar</button>`:'<span class="sm mut">—</span>'}</div>`).join("")}
+      ${g.length>2?`<div class="bar"><button data-del-g="${gi}">Apagar os ${g.length-1} extras</button></div>`:""}</div>`).join("")}
+    ${gs.length?`<div class="bar"><button class="primary" id="delTodos">Apagar todos os extras (${total})</button><button onclick="closeSheet()">Fechar</button></div>`
+      :`<div class="bar"><button onclick="closeSheet()">Fechar</button></div>`}`);
+  document.querySelectorAll("[data-del-mv]").forEach(b=>b.onclick=()=>{ apagarMovimento(b.dataset.delMv); save(); verDuplicados(); render(); });
+  document.querySelectorAll("[data-del-g]").forEach(b=>b.onclick=()=>{
+    const g=gs[+b.dataset.delG]; g.slice(1).forEach(m=>apagarMovimento(m.id)); save(); verDuplicados(); render(); });
+  const dt=document.getElementById("delTodos"); if(dt) dt.onclick=()=>{
+    if(!confirm("Apagar "+total+" movimentos duplicados, mantendo o primeiro de cada grupo?")) return;
+    gs.forEach(g=>g.slice(1).forEach(m=>apagarMovimento(m.id))); save(); closeSheet(); render();
+  };
+}
 function ligarTransferencia(m){
   const cand=S.movimentos.filter(x=> x.id!==m.id && !x.par && x.conta!==m.conta
       && Math.abs(x.valor + m.valor) < 0.015 && Math.abs(dias(x.data,m.data))<=7)
@@ -1176,6 +1227,9 @@ function viewDados(){
       <div class="hint">${(()=>{const s=new Set(); S.movimentos.forEach(m=>{if(m.sub)s.add(m.sub)}); S.regras.forEach(r=>{if(r.s)s.add(r.s)}); const n=S.movimentos.filter(m=>m.sub).length; return s.size?`${s.size} subcategorias em uso, em ${n} movimentos.`:"Sem subcategorias em uso.";})()}</div>
       <div class="bar"><button id="limparSub">Limpar subcategorias</button></div>
       <div class="hint">Apaga a subcategoria de todos os movimentos e regras. As categorias e as classificações não são afetadas.</div></div>
+    <div class="card"><b>Duplicados</b>
+      <div class="hint">Procura movimentos repetidos na mesma conta, com a mesma descrição e valor.</div>
+      <div class="bar"><button id="verDup">Procurar duplicados</button></div></div>
     <div class="card"><b>Regras</b><div class="hint">${S.regras.length} regras de classificação. Crie novas a partir de qualquer movimento, em "Criar regra".</div>
       <div class="bar"><button id="reaplicar">Reaplicar a tudo</button></div></div>
     ${S.ui.erro?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent"><b>Último erro</b><div class="hint" style="color:inherit">${esc(S.ui.erro)}</div>
@@ -1196,6 +1250,7 @@ function viewDados(){
     r.onload=()=>{ try{ S=JSON.parse(r.result); migrate(); save(); render(); alert("Cópia importada."); }catch(err){ alert("Ficheiro inválido."); } };
     r.readAsText(f);
   };
+  document.getElementById("verDup").onclick=()=>verDuplicados();
   document.getElementById("novaCat").onclick=()=>editCat(null);
   document.getElementById("verCats").onclick=()=>{
     openSheet(`<h2 style="margin:0 0 6px">Categorias</h2>
