@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finanças</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanças">
+<meta name="application-name" content="Finanças">
+<meta name="theme-color" content="#1F3864" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161A" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSIjMUYzODY0Ii8+PHRleHQgeD0iOTAiIHk9IjExOCIgZm9udC1mYW1pbHk9Ii1hcHBsZS1zeXN0ZW0sSGVsdmV0aWNhLEFyaWFsIiBmb250LXNpemU9IjkyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7igqw8L3RleHQ+PC9zdmc+">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSIjMUYzODY0Ii8+PHRleHQgeD0iOTAiIHk9IjExOCIgZm9udC1mYW1pbHk9Ii1hcHBsZS1zeXN0ZW0sSGVsdmV0aWNhLEFyaWFsIiBmb250LXNpemU9IjkyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7igqw8L3RleHQ+PC9zdmc+">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f4f5f7; --card:#ffffff; --ink:#15181d; --muted:#666e7a; --line:#dfe3e8;
+  --accent:#1f3864; --pos:#1f7a3d; --neg:#b3261e; --warn:#fff3cd; --warnink:#7a5b00;
+  --chip:#eef1f6;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161a; --card:#1d2026; --ink:#e9ecf1; --muted:#9aa3ae; --line:#2c313a;
+    --accent:#8fb0e8; --pos:#5ec37f; --neg:#ff8b80; --warn:#3b3venus; --warnink:#f0d48a; --chip:#262b33;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161a; --card:#1d2026; --ink:#e9ecf1; --muted:#9aa3ae; --line:#2c313a;
+  --accent:#8fb0e8; --pos:#5ec37f; --neg:#ff8b80; --warn:#3a3320; --warnink:#f0d48a; --chip:#262b33;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%}
+body{font-size:15px;line-height:1.4;padding-bottom:84px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--card);border-bottom:1px solid var(--line);padding:10px 12px}
+h1{font-size:17px;margin:0;font-weight:650}
+h2{font-size:15px;margin:18px 12px 8px;font-weight:650}
+.sub{color:var(--muted);font-size:12px}
+.wrap{padding:0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.big{font-size:20px;font-weight:650}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.mut{color:var(--muted)}
+.sm{font-size:12px}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:transparent}
+button.ghost{background:transparent}
+button:active{opacity:.7}
+select,input[type=text],input[type=number],input[type=date]{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;max-width:100%;font-size:16px}
+@supports (-webkit-touch-callout:none){ body{min-height:100svh} }
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:30}
+nav.tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:10px 4px 12px;font-size:11px;color:var(--muted)}
+nav.tabs button.on{color:var(--accent);font-weight:650}
+nav.tabs .ico{display:block;font-size:17px;line-height:1.2}
+.mv{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--card);cursor:pointer}
+.mv:last-child{border-bottom:0}
+.mv .d{flex:1;min-width:0}
+.mv .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.mv .v{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600}
+.list{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:8px 0}
+.daysep{padding:6px 12px;background:var(--bg);font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--muted);margin-right:4px}
+.badge.w{background:var(--warn);color:var(--warnink)}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.filters select,.filters input{width:auto;min-width:118px;flex:0 0 auto;padding:7px 9px;font-size:13px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
+.sheet.on{display:block}
+.sheet .in{position:absolute;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--card);border-radius:16px 16px 0 0;padding:14px 14px calc(20px + env(safe-area-inset-bottom,0px))}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tot td{border-top:2px solid var(--line);border-bottom:0;font-weight:650}
+.bar2{height:6px;border-radius:3px;background:var(--chip);overflow:hidden;margin-top:4px}
+.bar2 i{display:block;height:100%;background:var(--accent)}
+.hint{font-size:12px;color:var(--muted);margin:6px 0}
+.tap{padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.tap:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div><h1 id="ttl">Visão geral</h1><div class="sub" id="sttl"></div></div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="saveBtn" title="Exportar cópia">Exportar</button>
+      <button class="ghost" id="themeBtn" title="Tema">◐</button>
+    </div>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<nav class="tabs">
+  <button data-tab="geral" class="on"><span class="ico">▤</span>Geral</button>
+  <button data-tab="movs"><span class="ico">≡</span>Movimentos</button>
+  <button data-tab="env"><span class="ico">◧</span>Envelopes</button>
+  <button data-tab="contas"><span class="ico">▦</span>Contas</button>
+  <button data-tab="dados"><span class="ico">⚙</span>Dados</button>
+</nav>
+
+<div class="sheet" id="sheet"><div class="in" id="sheetIn"></div></div>
+
+<script>
+const SEED = {"cats":[{"nome":"Crédito habitação","tipo":"Despesa","n1":"Casa"},{"nome":"Condomínio","tipo":"Despesa","n1":"Casa"},{"nome":"Eletricidade e gás","tipo":"Despesa","n1":"Casa"},{"nome":"Água","tipo":"Despesa","n1":"Casa"},{"nome":"Telecomunicações","tipo":"Despesa","n1":"Casa"},{"nome":"Supermercado","tipo":"Despesa","n1":"Casa"},{"nome":"Manutenção","tipo":"Despesa","n1":"Casa"},{"nome":"Educação","tipo":"Despesa","n1":"Filhos"},{"nome":"Vestuário e atividades","tipo":"Despesa","n1":"Filhos"},{"nome":"Consultas","tipo":"Despesa","n1":"Saúde"},{"nome":"Farmácia","tipo":"Despesa","n1":"Saúde"},{"nome":"Dentista e ótica","tipo":"Despesa","n1":"Saúde"},{"nome":"Combustível e portagens","tipo":"Despesa","n1":"Transportes"},{"nome":"Outros transportes","tipo":"Despesa","n1":"Transportes"},{"nome":"Restauração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Lazer e viagens","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Casa e decoração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Compras","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Subscrições","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Desporto","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Cuidados pessoais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Animais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Seguros","tipo":"Despesa","n1":"Encargos"},{"nome":"Impostos e Estado","tipo":"Despesa","n1":"Encargos"},{"nome":"Quotas e associações","tipo":"Despesa","n1":"Encargos"},{"nome":"Comissões bancárias","tipo":"Despesa","n1":"Encargos"},{"nome":"Enviadas a particulares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Familiares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Levantamentos","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Ordenados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Juros","tipo":"Receita","n1":"Rendimentos"},{"nome":"Reembolsos não associados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros rendimentos","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros","tipo":"Despesa","n1":"Por classificar"},{"nome":"Poupança e investimentos","tipo":"Transferência interna","n1":"—"},{"nome":"Transferência interna","tipo":"Transferência interna","n1":"—"}],"rules":[],"accounts":[],"movimentos":[]};
+const KEY = "financas.v1";
+const EUR = v => (v<0?"−":"") + Math.abs(v).toLocaleString("pt-PT",{minimumFractionDigits:2,maximumFractionDigits:2}) + " €";
+const EUR0 = v => (v<0?"−":"") + Math.abs(v).toLocaleString("pt-PT",{maximumFractionDigits:0}) + " €";
+const uid = p => p + Math.random().toString(36).slice(2,9);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const fdate = d => { const [y,m,dd]=d.split("-"); return dd+" "+MESES[+m-1]+" "+y; };
+
+let S = null;
+
+let ARRANQUE={origem:"?",tamanho:0,erro:null};
+/* cópia local redundante em IndexedDB + armazenamento persistente */
+let IDB=null;
+function idb(){
+  if(IDB) return IDB;
+  IDB=new Promise(res=>{
+    try{
+      const r=indexedDB.open("financas",1);
+      r.onupgradeneeded=()=>{ r.result.createObjectStore("estado"); };
+      r.onsuccess=()=>res(r.result); r.onerror=()=>res(null);
+    }catch(e){ res(null); }
+  });
+  return IDB;
+}
+async function idbGuardar(txt){
+  const db=await idb(); if(!db) return;
+  try{ const tx=db.transaction("estado","readwrite"); tx.objectStore("estado").put(txt,"S"); }catch(e){}
+}
+function gravarLocal(){ const txt=JSON.stringify(S); try{ localStorage.setItem(KEY,txt); }catch(e){} idbGuardar(txt); }
+async function idbLer(){
+  const db=await idb(); if(!db) return null;
+  return new Promise(res=>{ try{ const q=db.transaction("estado","readonly").objectStore("estado").get("S");
+    q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }catch(e){ res(null); } });
+}
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+function load(){
+  try{ const raw = localStorage.getItem(KEY);
+    if(raw){ S = JSON.parse(raw); ARRANQUE={origem:"dispositivo",tamanho:raw.length,erro:null}; migrate(); return; }
+    ARRANQUE={origem:"dados de origem (armazenamento vazio)",tamanho:0,erro:null};
+  }catch(e){ ARRANQUE={origem:"dados de origem (erro de leitura)",tamanho:0,erro:String(e&&e.message||e)}; }
+  S = {
+    v:1,
+    contas: SEED.accounts.map(a=>({...a, envelopes:false, saldoInicial:null, saldoData:null})),
+    categorias: SEED.cats,
+    regras: SEED.rules.map((r,i)=>({id:"r"+i,...r})),
+    movimentos: SEED.movimentos.map(m=>({...m, reemb: m.reembolsoDe?[{mov:m.reembolsoDe,valor:m.valor}]:[]})),
+    envelopes: [],
+    ajustes: [],
+    tags: [],
+    ui: {tab:"geral", per:"mes", de:null, ate:null},
+    novo:true,
+    cfg: {desde:"2026-01-01", autoDrive:false, pasta:"Financas App", pastaId:null},
+    drive: {ultima:null,ficheiro:null,id:null}
+  };
+  save();
+}
+function migrate(){ if(!S.v2){ S.v2=true; S.ui=S.ui||{}; S.ui.per="mes"; } S.cfg=S.cfg||{desde:"2026-01-01"}; if(S.cfg.autoDrive===undefined) S.cfg.autoDrive=false; if(!S.cfg.pasta) S.cfg.pasta="Financas App"; S.drive=S.drive||{ultima:null,ficheiro:null,id:null}; S.ajustes=S.ajustes||[];
+  (S.movimentos||[]).forEach(m=>{ if(!m.reemb) m.reemb = m.reembolsoDe?[{mov:m.reembolsoDe,valor:m.valor}]:[]; }); S.envelopes=S.envelopes||[]; S.tags=S.tags||[]; S.ui=S.ui||{tab:"geral",per:"ano"}; }
+function save(){ try{ S.dirty=true; S.novo=false; S.alterado=new Date().toISOString();
+  const txt=JSON.stringify(S); localStorage.setItem(KEY, txt); idbGuardar(txt); agendarDrive(); }catch(e){ alert("Não foi possível guardar neste dispositivo. Exporte uma cópia em Dados."); } }
+
+/* ---------- Google Drive ---------- */
+let MCP=null, mcpTried=false;
+const SRV="Google Drive";
+const HORA=60*60*1000;
+async function mcp(){
+  if(MCP) return MCP;
+  try{ MCP = (window.claude && claude.use) ? await claude.use("mcp") : null; }catch(e){ MCP=null; }
+  return MCP;
+}
+function driveErro(e){
+  const c=(e&&e.code)||"";
+  if(c==="needs_reauth") return "A ligação ao Google Drive expirou. Volte a ligar o conector do Drive na sua conta Claude.";
+  if(c==="server_not_connected") return "O conector do Google Drive não está ligado nesta conta.";
+  if(c==="not_granted"||c==="blocked_by_policy") return "Não foi dada autorização para usar o Drive nesta página.";
+  if(c==="rate_limited") return "Demasiados pedidos ao Drive. Tente daqui a pouco.";
+  if(c==="server_unavailable"||c==="upstream_error") return "O Drive não respondeu. Pode ter gravado à mesma: verifique a lista antes de repetir.";
+  if(c==="tool_error") return "O Drive recusou a operação: "+((e&&e.message)||"");
+  return "Não foi possível falar com o Drive"+((e&&e.message)?": "+e.message:".");
+}
+function nomeFicheiro(){
+  const d=new Date(), p=n=>String(n).padStart(2,"0");
+  return "financas-"+d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+".json";
+}
+async function drivePasta(criar){
+  const m=await mcp(); if(!m) return null;
+  const nome=(S.cfg.pasta||"Financas App").replace(/'/g,"\\'");
+  if(S.cfg.pastaId) return S.cfg.pastaId;
+  const r=await m.callTool(SRV,"search_files",{query:"title = '"+nome+"' and mimeType = 'application/vnd.google-apps.folder'",excludeContentSnippets:true,pageSize:5});
+  const fs=((r&&r.payload)||{}).files||[];
+  if(fs.length){ S.cfg.pastaId=fs[0].id; gravarLocal(); return fs[0].id; }
+  if(!criar) return null;
+  const c=await m.callTool(SRV,"create_file",{title:S.cfg.pasta||"Financas App",contentMimeType:"application/vnd.google-apps.folder"});
+  const f=(c&&c.payload)||{};
+  if(f.id){ S.cfg.pastaId=f.id; gravarLocal(); }
+  return f.id||null;
+}
+async function driveGuardar(manual){
+  const m=await mcp(); if(!m) return {ok:false,msg:"O Drive não está disponível nesta página."};
+  try{
+    const pid=await drivePasta(true);
+    const r=await m.callTool(SRV,"create_file",Object.assign({title:nomeFicheiro(),textContent:JSON.stringify(S),
+      contentMimeType:"application/json",disableConversionToGoogleType:true}, pid?{parentId:pid}:{}));
+    const f=(r&&r.payload)||{};
+    S.drive=S.drive||{}; S.drive.ultima=new Date().toISOString(); S.drive.ficheiro=f.title||nomeFicheiro(); S.drive.id=f.id||null; S.drive.pasta=S.cfg.pasta;
+    S.dirty=false; gravarLocal();
+    return {ok:true,msg:"Gravado no Drive: "+(f.title||"")};
+  }catch(e){ return {ok:false,msg:driveErro(e)}; }
+}
+async function driveLista(){
+  const m=await mcp(); if(!m) return null;
+  try{
+    const pid=await drivePasta(false);
+    const q = pid ? ("parentId = '"+pid+"' and mimeType = 'application/json'")
+                  : "title contains 'financas-' and mimeType = 'application/json'";
+    const r=await m.callTool(SRV,"search_files",{query:q,excludeContentSnippets:true,pageSize:20});
+    const fs=((r&&r.payload)||{}).files||[];
+    return fs.sort((a,b)=> (b.createdTime||"").localeCompare(a.createdTime||""));
+  }catch(e){ return {erro:driveErro(e)}; }
+}
+function b64utf8(b64){
+  const bin=atob(b64); const u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(u);
+}
+async function driveCarregar(fileId){
+  const m=await mcp(); if(!m) return {ok:false,msg:"O Drive não está disponível nesta página."};
+  try{
+    const r=await m.callTool(SRV,"download_file_content",{fileId});
+    const p=(r&&r.payload)||{};
+    const txt=p.content?b64utf8(p.content):null;
+    if(!txt) return {ok:false,msg:"O ficheiro veio vazio."};
+    const novo=JSON.parse(txt);
+    if(!novo.movimentos) return {ok:false,msg:"O ficheiro não tem o formato da aplicação."};
+    S=novo; migrate(); S.dirty=false; S.drive=S.drive||{}; S.drive.ultima=new Date().toISOString(); gravarLocal();
+    return {ok:true,msg:"Carregado do Drive."};
+  }catch(e){ return {ok:false,msg:driveErro(e)}; }
+}
+let timerDrive=null;
+function agendarDrive(){
+  if(!S.cfg||!S.cfg.autoDrive) return;
+  clearTimeout(timerDrive);
+  timerDrive=setTimeout(()=>{ tentarAuto(); }, 3*60*1000);
+}
+async function tentarAuto(){
+  if(!S.cfg||!S.cfg.autoDrive||!S.dirty) return;
+  const ult=S.drive&&S.drive.ultima?new Date(S.drive.ultima).getTime():0;
+  if(Date.now()-ult < HORA) return;
+  const r=await driveGuardar(false);
+  if(r.ok && S.ui.tab==="dados") render();
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") tentarAuto(); });
+
+/* ---------- classificação ---------- */
+function catInfo(nome){ return S.categorias.find(c=>c.nome===nome) || {nome:nome,tipo:"Despesa",n1:"Por classificar"}; }
+function niveis(m){
+  if(m.cat==="Por rever") return {n1:"Por classificar",n2:"Por rever"};
+  const c = catInfo(m.cat); return {n1:c.n1||"Por classificar",n2:m.cat};
+}
+function tipoBase(m){ return m.cat==="Por rever" ? "Por rever" : catInfo(m.cat).tipo; }
+function reembParts(m){ return (m.reemb||[]).filter(r=>byId(r.mov)); }
+function reembTotal(m){ return reembParts(m).reduce((t,r)=>t+r.valor,0); }
+function componentes(m){
+  const out=[]; let usado=0;
+  for(const r of reembParts(m)){
+    const e=byId(r.mov);
+    out.push({cat:e.cat, sub:e.sub, tipo:(e.cat==="Por rever"?"Por rever":"Despesa"), valor:r.valor, data:e.data, origem:m.id});
+    usado+=r.valor;
+  }
+  const resto=Math.round((m.valor-usado)*100)/100;
+  if(Math.abs(resto)>0.005 || !out.length) out.push({cat:m.cat, sub:m.sub, tipo:tipoBase(m), valor:resto, data:m.data, origem:m.id});
+  return out;
+}
+function lancamentos(){
+  const [a,b]=periodo(); const out=[];
+  for(const m of S.movimentos) for(const c of componentes(m)) if(c.data>=a && c.data<=b) out.push(c);
+  return out;
+}
+function tipoDe(m){ const c=componentes(m); return c.length===1?c[0].tipo:"Despesa"; }
+function catEfetiva(m){ const c=componentes(m); return c.length===1?c[0].cat:(c[0].cat+" +"+(c.length-1)); }
+function reembolsadoDe(id){ let s=0; for(const m of S.movimentos) for(const r of (m.reemb||[])) if(r.mov===id) s+=r.valor; return s; }
+function aplicarRegras(desc,data){
+  const d=desc.toLowerCase();
+  for(const r of S.regras){
+    if(!r.p) continue;
+    if(r.desde && data < r.desde) continue;
+    if(d.includes(r.p.toLowerCase())) return r;
+  }
+  return null;
+}
+function byId(id){ return S.movimentos.find(m=>m.id===id); }
+function contaDe(nome){ return S.contas.find(c=>c.nome===nome); }
+
+/* ---------- períodos ---------- */
+function periodo(){
+  const hoje=new Date(); const y=hoje.getFullYear();
+  const p=S.ui.per;
+  const iso=d=>d.toISOString().slice(0,10);
+  if(p==="mes"){ const d=new Date(y,hoje.getMonth(),1); return [iso(d), iso(new Date(y,hoje.getMonth()+1,0))]; }
+  if(p==="3m"){ const d=new Date(y,hoje.getMonth()-2,1); return [iso(d), iso(new Date(y,hoje.getMonth()+1,0))]; }
+  if(p==="ano"){ return [y+"-01-01", y+"-12-31"]; }
+  if(p==="tudo"){ return ["0000-01-01","9999-12-31"]; }
+  return [S.ui.de||y+"-01-01", S.ui.ate||y+"-12-31"];
+}
+function noPeriodo(m){ const [a,b]=periodo(); return m.data>=a && m.data<=b; }
+
+/* ---------- agregação ---------- */
+function totais(lanc){
+  let rec=0, desp=0, rever=0;
+  for(const c of lanc){
+    if(c.tipo==="Receita") rec+=c.valor;
+    else if(c.tipo==="Despesa") desp+= -c.valor;
+    else if(c.tipo==="Por rever") rever += -c.valor;
+  }
+  return {rec, desp, rever, saldo: rec-desp-rever};
+}
+function porNivel(lanc){
+  const n1={}, n2={}, cat={};
+  for(const c of lanc){
+    if(c.tipo!=="Despesa" && c.tipo!=="Por rever") continue;
+    const nv=niveis(c); const v=-c.valor;
+    n1[nv.n1]=(n1[nv.n1]||0)+v;
+    n2[nv.n2]=(n2[nv.n2]||0)+v;
+    cat[c.cat]=(cat[c.cat]||0)+v;
+  }
+  return {n1,n2,cat};
+}
+function saldoConta(c){
+  const base = c.saldoInicial==null ? null : c.saldoInicial;
+  if(base===null) return null;
+  const desde = c.saldoData || "0000-01-01";
+  let s=base;
+  for(const m of S.movimentos) if(m.conta===c.nome && m.data>desde) s+=m.valor;
+  return s;
+}
+function envSaldo(e){
+  let s = e.saldoInicial||0;
+  for(const m of S.movimentos) for(const a of (m.env||[])) if(a.env===e.id) s += a.valor;
+  for(const a of S.ajustes) if(a.env===e.id) s += a.valor;
+  return s;
+}
+function porImputar(){
+  return S.movimentos.filter(m=>{
+    const c=contaDe(m.conta); if(!c||!c.envelopes) return false;
+    const soma=(m.env||[]).reduce((t,a)=>t+a.valor,0);
+    return Math.abs(soma-m.valor)>0.005;
+  });
+}
+
+/* ---------- render ---------- */
+const view=document.getElementById("view");
+function setTab(t){ S.ui.tab=t; save(); document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===t)); render(); }
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.getElementById("saveBtn").onclick=()=>{ exportar(); };
+function exportar(){
+  const blob=new Blob([JSON.stringify(S)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="financas-"+new Date().toISOString().slice(0,16).replace("T","-").replace(":","")+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  S.dirty=false; gravarLocal(); render();
+}
+document.getElementById("themeBtn").onclick=()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme", cur==="dark"?"light":"dark");
+};
+
+function render(){
+  const t=S.ui.tab;
+  document.getElementById("ttl").textContent = {geral:"Visão geral",movs:"Movimentos",env:"Envelopes",contas:"Contas",dados:"Dados"}[t];
+  const [a,b]=periodo();
+  document.getElementById("sttl").textContent = (t==="geral"||t==="movs") ? (fdate(a)+" a "+fdate(b)) : "";
+  const sb=document.getElementById("saveBtn");
+  if(sb){ sb.textContent = S.dirty?"Exportar •":"Exportar"; sb.className = S.dirty?"primary":""; }
+  if(t==="geral") viewGeral();
+  else if(t==="movs") viewMovs();
+  else if(t==="env") viewEnv();
+  else if(t==="contas") viewContas();
+  else viewDados();
+  window.scrollTo(0,0);
+}
+
+function selPeriodo(){
+  const p=S.ui.per;
+  return `<div class="filters">
+    ${["mes","ano","tudo"].map(k=>`<button data-per="${k}" class="${p===k?"primary":""}">${{mes:"Este mês",ao:"",ano:"Este ano",tudo:"Tudo"}[k]}</button>`).join("")}
+    <button data-per="cust" class="${p==="cust"?"primary":""}">Datas…</button>
+  </div>`;
+}
+function wirePeriodo(){
+  document.querySelectorAll("[data-per]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.per==="cust"){
+      const [a,c]=periodo();
+      openSheet(`<h2 style="margin:0 0 6px">Período</h2>
+        <label>De</label><input type="date" id="pd" value="${a}">
+        <label>Até</label><input type="date" id="pa" value="${c}">
+        <div class="bar"><button class="primary" id="pok">Aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+      document.getElementById("pok").onclick=()=>{ S.ui.per="cust"; S.ui.de=document.getElementById("pd").value; S.ui.ate=document.getElementById("pa").value; save(); closeSheet(); render(); };
+    } else { S.ui.per=b.dataset.per; save(); render(); }
+  });
+}
+
+function viewGeral(){
+  const lanc=lancamentos();
+  const t=totais(lanc);
+  const nv=porNivel(lanc);
+  const pend=S.movimentos.filter(m=>m.cat==="Por rever").length;
+  const imp=porImputar().length;
+  const contasHtml=S.contas.map(c=>{
+    const s=saldoConta(c);
+    return `<div class="row" style="padding:6px 0"><div>${esc(c.nome)}<div class="sm mut">${esc(c.banco)}</div></div>
+      <div class="v ${s<0?"neg":""}">${s===null?'<span class="sm mut">definir saldo</span>':EUR(s)}</div></div>`;
+  }).join("");
+  const envHtml = S.envelopes.length? S.envelopes.map(e=>`<div class="row" style="padding:6px 0"><div>${esc(e.nome)}</div><div class="v">${EUR(envSaldo(e))}</div></div>`).join("")
+    : `<div class="sm mut">Sem envelopes. Crie no separador Envelopes.</div>`;
+  const max=Math.max(...Object.values(nv.n1),1);
+  const sub2={};
+  for(const c of lanc){
+    if(c.tipo!=="Despesa" && c.tipo!=="Por rever") continue;
+    const n=niveis(c), v=-c.valor;
+    (sub2[n.n1]=sub2[n.n1]||{})[n.n2]=(sub2[n.n1][n.n2]||0)+v;
+  }
+  const ord=o=>Object.entries(o||{}).sort((x,y)=>y[1]-x[1]);
+  const n1Html=ord(nv.n1).map(([k,v])=>{
+    const ab1=(S.ui.exp1===k);
+    let html=`<div class="tap" data-n1="${esc(k)}"><div class="row"><div>${ab1?"▾ ":"▸ "}${esc(k)}</div><div class="v">${EUR(v)}</div></div>
+      <div class="bar2"><i style="width:${Math.round(v/max*100)}%"></i></div></div>`;
+    if(ab1){
+      html+=ord(sub2[k]).map(([k2,v2])=>`<div class="tap" data-cat="${esc(k2)}" style="padding-left:16px"><div class="row"><div class="sm">${esc(k2)} →</div><div class="v sm">${EUR(v2)}</div></div></div>`).join("");
+    }
+    return html;
+  }).join("");
+  view.innerHTML = selPeriodo() + `<div class="wrap">
+    <div class="card"><div class="grid3">
+      <div><div class="sm mut">Receitas</div><div class="big pos">${EUR0(t.rec)}</div></div>
+      <div><div class="sm mut">Despesas</div><div class="big neg">${EUR0(t.desp+t.rever)}</div></div>
+      <div><div class="sm mut">Poupança</div><div class="big ${t.saldo<0?"neg":"pos"}">${EUR0(t.saldo)}</div></div>
+    </div>
+    ${t.rever?`<div class="sm mut" style="margin-top:6px">Inclui ${EUR(t.rever)} por rever</div>`:""}</div>
+
+    <h2 style="margin-left:0">Despesa por nível</h2>
+    <div class="card">${n1Html||'<div class="sm mut">Sem dados no período.</div>'}</div>
+    <div class="hint">Toque num grupo para ver as categorias, e numa categoria para ver os movimentos.</div>
+
+    <h2 style="margin-left:0">Saldos por conta</h2><div class="card">${contasHtml}</div>
+    <h2 style="margin-left:0">Envelopes</h2><div class="card">${envHtml}</div>
+
+    ${(pend||imp)?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent">
+      ${pend?`<div class="tap" id="goRever" style="border:0">${pend} movimentos por rever →</div>`:""}
+      ${imp?`<div class="tap" id="goImp" style="border:0">${imp} movimentos por imputar a envelopes →</div>`:""}
+    </div>`:""}
+  </div>`;
+  wirePeriodo();
+  const gr=document.getElementById("goRever"); if(gr) gr.onclick=()=>{ S.ui.fCat="Por rever"; setTab("movs"); };
+  const gi=document.getElementById("goImp"); if(gi) gi.onclick=()=>{ S.ui.fEstado="imputar"; setTab("movs"); };
+  document.querySelectorAll("[data-n1]").forEach(d=>d.onclick=()=>{ S.ui.exp1 = (S.ui.exp1===d.dataset.n1)?null:d.dataset.n1; S.ui.exp2=null; save(); render(); });
+  document.querySelectorAll("[data-cat]").forEach(d=>d.onclick=e=>{ e.stopPropagation(); S.ui.fCat=d.dataset.cat; S.ui.fEstado=""; setTab("movs"); });
+}
+
+function viewMovs(){
+  const cats=["(todas)","Por rever",...S.categorias.map(c=>c.nome)];
+  const contas=["(todas)",...S.contas.map(c=>c.nome)];
+  const tags=["(todas)",...tagsExistentes()];
+  const f=S.ui;
+  view.innerHTML = selPeriodo() + `
+  <div class="filters">
+    <input type="text" id="fq" placeholder="Procurar…" value="${esc(f.fQ||"")}">
+    <select id="fcat">${cats.map(c=>`<option ${c===(f.fCat||"(todas)")?"selected":""}>${esc(c)}</option>`).join("")}</select>
+    <select id="fconta">${contas.map(c=>`<option ${c===(f.fConta||"(todas)")?"selected":""}>${esc(c)}</option>`).join("")}</select>
+    <select id="ftag">${tags.map(c=>`<option ${c===(f.fTag||"(todas)")?"selected":""}>${esc(c)}</option>`).join("")}</select>
+    <select id="festado">
+      <option value="">(todos)</option>
+      <option value="rever" ${f.fEstado==="rever"?"selected":""}>Por rever</option>
+      <option value="imputar" ${f.fEstado==="imputar"?"selected":""}>Por imputar</option>
+      <option value="desp" ${f.fEstado==="desp"?"selected":""}>Só despesas</option>
+      <option value="rec" ${f.fEstado==="rec"?"selected":""}>Só entradas</option>
+    </select>
+    <button id="fclear">Limpar</button>
+    <button id="fnovo" class="primary">+ Movimento</button>
+  </div>
+  <div class="wrap"><div id="mvsum" class="card"></div></div>
+  <div class="wrap" id="mvlist"></div>`;
+  wirePeriodo();
+  const upd=()=>{ S.ui.fQ=document.getElementById("fq").value;
+    S.ui.fCat=document.getElementById("fcat").value; S.ui.fConta=document.getElementById("fconta").value;
+    S.ui.fTag=document.getElementById("ftag").value; S.ui.fEstado=document.getElementById("festado").value;
+    save(); listar(); };
+  ["fq","fcat","fconta","ftag","festado"].forEach(id=>{ const el=document.getElementById(id); el.oninput=upd; el.onchange=upd; });
+  document.getElementById("fnovo").onclick=()=>novoMovimento(S.ui.fConta&&S.ui.fConta!=="(todas)"?S.ui.fConta:null);
+  document.getElementById("fclear").onclick=()=>{ S.ui.fQ="";S.ui.fCat="(todas)";S.ui.fConta="(todas)";S.ui.fTag="(todas)";S.ui.fEstado=""; save(); render(); };
+  listar();
+}
+function filtrados(){
+  const f=S.ui;
+  return S.movimentos.filter(m=>{
+    if(!noPeriodo(m)) return false;
+    if(f.fQ && !m.desc.toLowerCase().includes(f.fQ.toLowerCase())) return false;
+    if(f.fCat && f.fCat!=="(todas)" && !componentes(m).some(c=>c.cat===f.fCat)) return false;
+    if(f.fConta && f.fConta!=="(todas)" && m.conta!==f.fConta) return false;
+    if(f.fTag && f.fTag!=="(todas)" && m.tag!==f.fTag) return false;
+    if(f.fEstado==="rever" && m.cat!=="Por rever") return false;
+    if(f.fEstado==="desp" && !componentes(m).some(c=>c.tipo==="Despesa")) return false;
+    if(f.fEstado==="rec" && m.valor<=0) return false;
+    if(f.fEstado==="imputar"){ const c=contaDe(m.conta); if(!c||!c.envelopes) return false;
+      const s=(m.env||[]).reduce((t,a)=>t+a.valor,0); if(Math.abs(s-m.valor)<=0.005) return false; }
+    return true;
+  }).sort((a,b)=> a.data<b.data?1:a.data>b.data?-1:0);
+}
+function listar(){
+  const ms=filtrados();
+  const t=totais(ms.flatMap(m=>componentes(m)));
+  document.getElementById("mvsum").innerHTML=`<div class="row"><div>${ms.length} movimentos</div>
+    <div class="sm"><span class="pos">${EUR0(t.rec)}</span> · <span class="neg">${EUR0(t.desp+t.rever)}</span></div></div>`;
+  let html="", dia="";
+  for(const m of ms.slice(0,600)){
+    if(m.data!==dia){ dia=m.data; html+=`</div><div class="daysep">${fdate(dia)}</div><div class="list">`; }
+    const comp=componentes(m);
+    const nv=comp.map(c=>c.cat).join(" + ");
+    const rb=reembolsadoDe(m.id);
+    const tags=[m.tag?`<span class="badge">${esc(m.tag)}</span>`:"",
+      reembParts(m).length?`<span class="badge">reembolso de ${reembParts(m).length}</span>`:"",
+      (m.valor<0&&rb>0.005)?`<span class="badge">líquido ${EUR(m.valor+rb)}</span>`:"",
+      (m.env&&m.env.length)?`<span class="badge">envelope</span>`:""].join("");
+    html+=`<div class="mv" data-id="${m.id}"><div class="d">
+      <div class="t">${esc(m.desc)}</div>
+      <div class="sm mut">${esc(nv)}${(comp.length===1&&m.sub)?" · "+esc(m.sub):""} · ${esc(m.conta)}</div>
+      <div>${tags}</div></div>
+      <div class="v ${m.valor<0?"neg":"pos"}">${EUR(m.valor)}</div></div>`;
+  }
+  html=html.replace(/^<\/div>/,"")+"</div>";
+  document.getElementById("mvlist").innerHTML=html + (ms.length>600?`<div class="hint">A mostrar os 600 mais recentes.</div>`:"");
+  document.querySelectorAll(".mv").forEach(d=>d.onclick=()=>detalhe(d.dataset.id));
+}
+function tagsExistentes(){ const s=new Set(); S.movimentos.forEach(m=>{ if(m.tag) s.add(m.tag); }); S.tags.forEach(t=>s.add(t)); return [...s].sort(); }
+
+/* ---------- detalhe do movimento ---------- */
+function detalhe(id){
+  const m=byId(id); if(!m) return;
+  const c=contaDe(m.conta);
+  const cats=S.categorias.map(x=>x.nome);
+  const parts=reembParts(m); const usado=reembTotal(m); const sobra=Math.round((m.valor-usado)*100)/100;
+  const recebido=reembolsadoDe(m.id);
+  const somaEnv=(m.env||[]).reduce((t,a)=>t+a.valor,0);
+  const envList=(m.env||[]).map(a=>{ const e=S.envelopes.find(x=>x.id===a.env); return `<div class="row" style="padding:4px 0"><div>${esc(e?e.nome:"?")}</div><div class="v">${EUR(a.valor)}</div></div>`; }).join("");
+  openSheet(`
+    <div class="row"><div><div class="sm mut">${fdate(m.data)} · ${esc(m.conta)}${m.cartao?" · "+esc(m.cartao):""}</div>
+      <div style="font-weight:600;margin-top:2px">${esc(m.desc)}</div></div>
+      <div class="big ${m.valor<0?"neg":"pos"}">${EUR(m.valor)}</div></div>
+
+    <label>Categoria</label>
+    <select id="dcat">${["Por rever",...cats].map(x=>`<option ${x===m.cat?"selected":""}>${esc(x)}</option>`).join("")}</select>
+    <label>Subcategoria</label>
+    <input type="text" id="dsub" value="${esc(m.sub||"")}" placeholder="opcional">
+    <label>Tag</label>
+    <input type="text" id="dtag" list="tagl" value="${esc(m.tag||"")}" placeholder="ex.: Férias 2026">
+    <datalist id="tagl">${tagsExistentes().map(t=>`<option>${esc(t)}</option>`).join("")}</datalist>
+
+    ${(m.valor>0||parts.length)?`<div class="card" style="margin-top:12px">
+      <div class="row"><div class="sm mut">Reembolso de despesas</div><div class="sm ${Math.abs(sobra)>0.005?"":"mut"}">${EUR(usado)} de ${EUR(m.valor)}</div></div>
+      ${parts.map((r,i)=>{ const e=byId(r.mov); return `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
+        <div style="min-width:0"><div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.desc)}</div>
+        <div class="sm mut">${fdate(e.data)} · ${esc(e.cat)} · despesa ${EUR(e.valor)}</div></div>
+        <div style="text-align:right"><div class="v">${EUR(r.valor)}</div><button class="sm" data-rm="${i}">remover</button></div></div>`;}).join("")}
+      ${Math.abs(sobra)>0.005?`<div class="sm mut" style="margin-top:6px">Por atribuir: ${EUR(sobra)} (fica em ${esc(m.cat)})</div>`:""}
+      <div class="bar"><button id="dreemb2">Acrescentar despesa…</button></div></div>`:""}
+    ${(m.valor<0&&recebido>0.005)?`<div class="card" style="margin-top:12px"><div class="row"><div class="sm mut">Reembolsos recebidos</div><div class="v">${EUR(recebido)}</div></div>
+      <div class="row"><div class="sm mut">Custo líquido</div><div class="v">${EUR(m.valor+recebido)}</div></div></div>`:""}
+
+    ${(c&&c.envelopes)?`<div class="card" style="margin-top:12px">
+      <div class="row"><div class="sm mut">Envelopes</div><div class="sm ${Math.abs(somaEnv-m.valor)>0.005?"neg":"mut"}">${EUR(somaEnv)} de ${EUR(m.valor)}</div></div>
+      ${envList||'<div class="sm mut">Por imputar</div>'}
+      <div class="bar"><button id="impB">Imputar…</button>
+      ${(m.sub||"").toLowerCase().includes("juros")||m.desc.toLowerCase().includes("juros")?`<button id="propB">Repartir proporcionalmente</button>`:""}</div></div>`:""}
+
+    <div class="bar">
+      <button class="primary" id="dsave">Guardar</button>
+
+      <button id="drule">Criar regra</button>
+      <button onclick="closeSheet()">Fechar</button>
+    </div>
+    <div class="hint">A categoria que escolher aqui prevalece sempre sobre as regras.</div>
+  `);
+  document.getElementById("dsave").onclick=()=>{
+    const catAnt=m.cat;
+    m.cat=document.getElementById("dcat").value;
+    m.sub=document.getElementById("dsub").value.trim();
+    const tg=document.getElementById("dtag").value.trim();
+    m.tag=tg; if(tg && !S.tags.includes(tg)) S.tags.push(tg);
+    m.manual=true; save();
+    if(m.cat!==catAnt && m.cat!=="Por rever") perguntarRegra(m); else { closeSheet(); render(); }
+  };
+  document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ m.reemb.splice(+b.dataset.rm,1); save(); detalhe(m.id); render(); });
+  const rb2=document.getElementById("dreemb2"); if(rb2) rb2.onclick=()=>escolherDespesa(m);
+  const cr=document.getElementById("drule"); if(cr) cr.onclick=()=>criarRegra(m);
+  const ib=document.getElementById("impB"); if(ib) ib.onclick=()=>imputar(m);
+  const pb=document.getElementById("propB"); if(pb) pb.onclick=()=>{ repartirProporcional(m); };
+}
+
+function escolherDespesa(m){
+  const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
+  const jaUsadas=new Set((m.reemb||[]).map(r=>r.mov));
+  const cand=S.movimentos.filter(e=> e.valor<0 && !jaUsadas.has(e.id) && e.data<=m.data && dias(e.data,m.data)<=90
+      && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01)
+    .sort((a,b)=> dias(a.data,m.data)-dias(b.data,m.data)).slice(0,60);
+  openSheet(`<h2 style="margin:0 0 4px">Que despesa está a ser reembolsada?</h2>
+    <div class="hint">Entrada de ${EUR(m.valor)} em ${fdate(m.data)}. Por atribuir: ${EUR(sobra)}. Pode repartir por várias despesas e por valores parciais.</div>
+    <label>Procurar</label><input type="text" id="cq" placeholder="nome da despesa…">
+    <div class="list" id="clist"></div>
+    <div class="bar"><button onclick="closeSheet()">Fechar</button></div>`);
+  const draw=()=>{
+    const q=(document.getElementById("cq").value||"").toLowerCase();
+    const ms=cand.filter(e=>!q||e.desc.toLowerCase().includes(q)).slice(0,40);
+    document.getElementById("clist").innerHTML=ms.map(e=>{
+      const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
+      const n=Math.round(Math.abs(e.valor)/Math.abs(sobra||m.valor));
+      return `<div class="mv" data-e="${e.id}"><div class="d"><div class="t">${esc(e.desc)}</div>
+      <div class="sm mut">${fdate(e.data)} · ${esc(e.conta)} · ${esc(e.cat)} · por reembolsar ${EUR(falta)}${n>=2&&n<=15?` · ${n} pessoas`:""}</div></div>
+      <div class="v neg">${EUR(e.valor)}</div></div>`;}).join("")||'<div class="hint">Sem despesas compatíveis nos 90 dias anteriores.</div>';
+    document.querySelectorAll("[data-e]").forEach(d=>d.onclick=()=>valorParcial(m,d.dataset.e));
+  };
+  document.getElementById("cq").oninput=draw; draw();
+}
+function valorParcial(m,eid){
+  const e=byId(eid);
+  const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
+  const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(eid))*100)/100;
+  const sug=Math.min(sobra,falta);
+  openSheet(`<h2 style="margin:0 0 4px">Quanto desta entrada?</h2>
+    <div class="hint">${esc(e.desc)} · ${fdate(e.data)}<br>Despesa ${EUR(e.valor)}, por reembolsar ${EUR(falta)}. Desta entrada faltam atribuir ${EUR(sobra)}.</div>
+    <label>Valor a abater a esta despesa</label><input type="number" step="0.01" id="vp" value="${sug.toFixed(2)}">
+    <div class="bar"><button class="primary" id="vok">Ligar</button><button id="vback">Voltar</button></div>`);
+  document.getElementById("vback").onclick=()=>escolherDespesa(m);
+  document.getElementById("vok").onclick=()=>{
+    const v=Math.round((parseFloat((document.getElementById("vp").value||"0").replace(",","."))||0)*100)/100;
+    if(v<=0) return;
+    m.reemb=m.reemb||[]; m.reemb.push({mov:eid,valor:v}); m.manual=true; save(); detalhe(m.id); render();
+  };
+}
+function dias(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
+
+function perguntarRegra(m){
+  const q=(S.ui.fQ||"").trim();
+  const base=m.desc.split(" - Cartao")[0].split(" - Terminal")[0].trim();
+  const sugerido = (q && m.desc.toLowerCase().includes(q.toLowerCase())) ? q : base;
+  const conta=txt=>S.movimentos.filter(x=>x.id!==m.id && x.desc.toLowerCase().includes(txt.toLowerCase())).length;
+  const n=conta(sugerido);
+  if(!n){ closeSheet(); render(); return; }
+  openSheet(`<h2 style="margin:0 0 4px">Aplicar aos outros?</h2>
+    <div class="hint">Classificou este movimento como <b>${esc(m.cat)}</b>${m.sub?" · "+esc(m.sub):""}. Existem mais ${n} movimentos com este texto na descrição.</div>
+    <label>Texto da regra</label><input type="text" id="pr" value="${esc(sugerido)}">
+    <div class="hint" id="prn">${n} outros movimentos correspondem.</div>
+    <div class="bar"><button class="primary" id="prok">Criar regra e aplicar</button>
+      <button id="prno">Só este movimento</button></div>`);
+  const el=document.getElementById("pr");
+  el.oninput=()=>{ const v=el.value.trim(); document.getElementById("prn").textContent = v?(conta(v)+" outros movimentos correspondem."):"Escreva um texto."; };
+  document.getElementById("prno").onclick=()=>{ closeSheet(); render(); };
+  document.getElementById("prok").onclick=()=>{
+    const p=el.value.trim(); if(!p){ closeSheet(); render(); return; }
+    S.regras.unshift({id:uid("r"),p,c:m.cat,s:m.sub||"",desde:null});
+    let k=0;
+    for(const mv of S.movimentos){ if(mv.manual||mv.id===m.id) continue; const r=aplicarRegras(mv.desc,mv.data); if(r){ mv.cat=r.c; mv.sub=r.s||""; k++; } }
+    save(); closeSheet(); render(); alert("Regra criada. "+k+" movimentos reclassificados.");
+  };
+}
+function criarRegra(m){
+  const base=m.desc.split(" - Cartao")[0].split(" - Terminal")[0].trim();
+  openSheet(`<h2 style="margin:0 0 4px">Criar regra</h2>
+    <div class="hint">Todos os movimentos, passados e futuros, cuja descrição contenha este texto passam a ter esta categoria.</div>
+    <label>Texto</label><input type="text" id="rp" value="${esc(base)}">
+    <label>Categoria</label><select id="rc">${S.categorias.map(c=>`<option ${c.nome===m.cat?"selected":""}>${esc(c.nome)}</option>`).join("")}</select>
+    <label>Subcategoria</label><input type="text" id="rs" value="${esc(m.sub||"")}">
+    <div class="bar"><button class="primary" id="rok">Criar e aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  document.getElementById("rok").onclick=()=>{
+    const p=document.getElementById("rp").value.trim(); if(!p) return;
+    S.regras.unshift({id:uid("r"),p,c:document.getElementById("rc").value,s:document.getElementById("rs").value.trim(),desde:null});
+    let n=0;
+    for(const mv of S.movimentos){ if(mv.manual) continue; const r=aplicarRegras(mv.desc,mv.data); if(r){ mv.cat=r.c; mv.sub=r.s||""; n++; } }
+    save(); closeSheet(); render(); alert("Regra criada. "+n+" movimentos reclassificados.");
+  };
+}
+
+/* ---------- envelopes ---------- */
+function imputar(m){
+  if(!S.envelopes.length){ alert("Crie primeiro um envelope no separador Envelopes."); return; }
+  const at={}; (m.env||[]).forEach(a=>at[a.env]=a.valor);
+  openSheet(`<h2 style="margin:0 0 4px">Imputar a envelopes</h2>
+    <div class="hint">Movimento de ${EUR(m.valor)}. Pode repartir por vários envelopes, à mão ou com os botões em baixo. O que não imputar fica em dinheiro não reservado.</div>
+    ${S.envelopes.map(e=>`<label>${esc(e.nome)} <span class="mut">(saldo ${EUR(envSaldo(e))})</span></label>
+      <input type="number" step="0.01" id="e_${e.id}" value="${at[e.id]!=null?at[e.id]:""}" placeholder="0,00">`).join("")}
+    <div class="bar"><button id="iprop">Proporcional</button><button id="iigual">Por igual</button><button id="ilimpar">Limpar</button></div>
+    <div class="bar"><button class="primary" id="iok">Guardar</button><button onclick="closeSheet()">Cancelar</button></div>
+    <div id="ires" class="hint"></div>`);
+  const calc=()=>{ let s=0; S.envelopes.forEach(e=>{ const v=parseFloat(document.getElementById("e_"+e.id).value.replace(",",".")); if(!isNaN(v)) s+=v; });
+    document.getElementById("ires").textContent = "Imputado: "+EUR(s)+" · Não reservado: "+EUR(m.valor-s); };
+  S.envelopes.forEach(e=>document.getElementById("e_"+e.id).oninput=calc); calc();
+  const preencher=modo=>{
+    const pesos=S.envelopes.map(e=> modo==="prop" ? Math.max(envSaldo(e),0) : 1);
+    const tot=pesos.reduce((a,b)=>a+b,0);
+    if(tot<=0){ alert(modo==="prop"?"Os envelopes não têm saldo para repartir proporcionalmente.":"Sem envelopes."); return; }
+    let resto=Math.round(m.valor*100);
+    S.envelopes.forEach((e,i)=>{
+      const c = i===S.envelopes.length-1 ? resto : Math.round(m.valor*100*pesos[i]/tot);
+      resto-=c; document.getElementById("e_"+e.id).value=(c/100).toFixed(2);
+    });
+    calc();
+  };
+  document.getElementById("iprop").onclick=()=>preencher("prop");
+  document.getElementById("iigual").onclick=()=>preencher("igual");
+  document.getElementById("ilimpar").onclick=()=>{ S.envelopes.forEach(e=>document.getElementById("e_"+e.id).value=""); calc(); };
+  document.getElementById("iok").onclick=()=>{
+    const arr=[]; S.envelopes.forEach(e=>{ const v=parseFloat((document.getElementById("e_"+e.id).value||"").replace(",",".")); if(!isNaN(v)&&v!==0) arr.push({env:e.id,valor:Math.round(v*100)/100}); });
+    m.env=arr; save(); closeSheet(); render();
+  };
+}
+function repartirProporcional(m){
+  const tot=S.envelopes.reduce((t,e)=>t+Math.max(envSaldo(e),0),0);
+  if(tot<=0){ alert("Os envelopes não têm saldo para repartir proporcionalmente."); return; }
+  let resto=Math.round(m.valor*100), arr=[];
+  S.envelopes.forEach((e,i)=>{
+    const s=Math.max(envSaldo(e),0);
+    let c = i===S.envelopes.length-1 ? resto : Math.round(m.valor*100*s/tot);
+    resto-=c; if(c!==0) arr.push({env:e.id, valor:c/100});
+  });
+  m.env=arr; save(); closeSheet(); render();
+}
+function viewEnv(){
+  const totalEnv=S.envelopes.reduce((t,e)=>t+envSaldo(e),0);
+  const saldoTot=S.contas.reduce((t,c)=>{ const s=saldoConta(c); return t+(s||0); },0);
+  view.innerHTML=`<div class="wrap">
+    <div class="card"><div class="row"><div>Reservado em envelopes</div><div class="big">${EUR(totalEnv)}</div></div>
+      <div class="row sm mut"><div>Saldo total das contas</div><div>${EUR(saldoTot)}</div></div>
+      <div class="row sm"><div>Não reservado</div><div>${EUR(saldoTot-totalEnv)}</div></div></div>
+    ${S.envelopes.map(e=>`<div class="card"><div class="row"><div><b>${esc(e.nome)}</b>
+      <div class="sm mut">Inicial ${EUR(e.saldoInicial||0)}</div></div><div class="big">${EUR(envSaldo(e))}</div></div>
+      <div class="bar"><button data-aj="${e.id}">Ajustar</button><button data-mv="${e.id}">Ver movimentos</button><button data-del="${e.id}">Apagar</button></div></div>`).join("")}
+    <div class="bar"><button class="primary" id="newEnv">Novo envelope</button></div>
+    <div class="hint">Os envelopes são transversais às contas: o saldo de um envelope pode estar repartido por várias contas. O "não reservado" é o que sobra do saldo das contas depois de descontados os envelopes.</div>
+    ${porImputar().length?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent">
+      <div class="tap" id="goImp2" style="border:0">${porImputar().length} movimentos por imputar nas contas com envelopes →</div></div>`:""}
+  </div>`;
+  document.getElementById("newEnv").onclick=()=>editEnv(null);
+  const g2=document.getElementById("goImp2"); if(g2) g2.onclick=()=>{ S.ui.fEstado="imputar"; S.ui.per="tudo"; setTab("movs"); };
+  document.querySelectorAll("[data-aj]").forEach(b=>b.onclick=()=>ajustar(b.dataset.aj));
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ if(confirm("Apagar envelope? As imputações feitas ficam sem efeito.")){ S.envelopes=S.envelopes.filter(x=>x.id!==b.dataset.del); save(); render(); }});
+  document.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ const id=b.dataset.mv;
+    const ms=S.movimentos.filter(m=>(m.env||[]).some(a=>a.env===id));
+    openSheet(`<h2 style="margin:0 0 6px">Movimentos imputados</h2><div class="list">${ms.map(m=>{
+      const a=m.env.find(x=>x.env===id);
+      return `<div class="mv"><div class="d"><div class="t">${esc(m.desc)}</div><div class="sm mut">${fdate(m.data)} · ${esc(m.conta)}</div></div><div class="v ${a.valor<0?"neg":"pos"}">${EUR(a.valor)}</div></div>`;
+    }).join("")||'<div class="hint">Ainda sem movimentos.</div>'}</div><div class="bar"><button onclick="closeSheet()">Fechar</button></div>`); });
+}
+function editEnv(id){
+  const e=id?S.envelopes.find(x=>x.id===id):null;
+  openSheet(`<h2 style="margin:0 0 4px">${e?"Editar":"Novo"} envelope</h2>
+    <label>Nome</label><input type="text" id="en" value="${esc(e?e.nome:"")}" placeholder="ex.: Futuro dos filhos">
+    <label>Saldo inicial (hoje)</label><input type="number" step="0.01" id="es" value="${e?e.saldoInicial:""}" placeholder="0,00">
+    <div class="bar"><button class="primary" id="eok">Guardar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  document.getElementById("eok").onclick=()=>{
+    const n=document.getElementById("en").value.trim(); if(!n) return;
+    const s=parseFloat((document.getElementById("es").value||"0").replace(",","."))||0;
+    if(e){ e.nome=n; e.saldoInicial=s; } else S.envelopes.push({id:uid("e"),nome:n,saldoInicial:s});
+    save(); closeSheet(); render();
+  };
+}
+function ajustar(id){
+  const e=S.envelopes.find(x=>x.id===id);
+  openSheet(`<h2 style="margin:0 0 4px">Ajustar ${esc(e.nome)}</h2>
+    <div class="hint">Use para reservar ou libertar dinheiro sem que exista um movimento bancário. Positivo reserva mais, negativo liberta.</div>
+    <label>Valor</label><input type="number" step="0.01" id="av" placeholder="0,00">
+    <label>Nota</label><input type="text" id="an" placeholder="opcional">
+    <div class="bar"><button class="primary" id="aok">Aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  document.getElementById("aok").onclick=()=>{
+    const v=parseFloat((document.getElementById("av").value||"0").replace(",","."))||0;
+    S.ajustes.push({id:uid("a"),env:id,valor:v,nota:document.getElementById("an").value.trim(),data:new Date().toISOString().slice(0,10)});
+    save(); closeSheet(); render();
+  };
+}
+
+/* ---------- contas ---------- */
+function viewContas(){
+  view.innerHTML=`<div class="wrap">
+    ${S.contas.map((c,i)=>{ const s=saldoConta(c); return `<div class="card">
+      <div class="row"><div><b>${esc(c.nome)}</b><div class="sm mut">${esc(c.banco)} · ${esc(c.tipo)}</div></div>
+      <div class="big">${s===null?'<span class="sm mut">—</span>':EUR(s)}</div></div>
+      <label>Saldo em</label><input type="date" data-sd="${i}" value="${c.saldoData||""}">
+      <label>Saldo nessa data</label><input type="number" step="0.01" data-si="${i}" value="${c.saldoInicial==null?"":c.saldoInicial}" placeholder="não definido">
+      <div class="bar"><button data-env="${i}" class="${c.envelopes?"primary":""}">${c.envelopes?"✓ ":""}Conta com envelopes</button>
+        <button data-ec="${i}">Editar</button><button data-nm="${esc(c.nome)}">Lançar movimento</button></div>
+      <div class="hint">${c.envelopes?"Nesta conta a app pede o envelope em cada movimento.":"Nesta conta não são pedidos envelopes."}</div>
+    </div>`;}).join("")}
+    <div class="bar"><button class="primary" id="novaConta">Nova conta</button></div>
+    <div class="hint">O saldo de cada conta é calculado a partir do saldo que indicar, somando os movimentos posteriores a essa data.</div>
+  </div>`;
+  document.getElementById("novaConta").onclick=()=>editConta(null);
+  document.querySelectorAll("[data-ec]").forEach(b=>b.onclick=()=>editConta(+b.dataset.ec));
+  document.querySelectorAll("[data-sd]").forEach(el=>el.onchange=()=>{ S.contas[+el.dataset.sd].saldoData=el.value; save(); render(); });
+  document.querySelectorAll("[data-si]").forEach(el=>el.onchange=()=>{ const v=el.value.trim(); S.contas[+el.dataset.si].saldoInicial = v===""?null:parseFloat(v.replace(",","."))||0; save(); render(); });
+  document.querySelectorAll("[data-env]").forEach(b=>b.onclick=()=>{ const c=S.contas[+b.dataset.env]; c.envelopes=!c.envelopes; save(); render(); });
+  document.querySelectorAll("[data-nm]").forEach(b=>b.onclick=()=>novoMovimento(b.dataset.nm));
+}
+
+function editConta(i){
+  const c = i==null?null:S.contas[i];
+  openSheet(`<h2 style="margin:0 0 4px">${c?"Editar conta":"Nova conta"}</h2>
+    <label>Nome</label><input type="text" id="cn" value="${esc(c?c.nome:"")}" placeholder="ex.: Poupança CTT">
+    <label>Banco</label><input type="text" id="cb" value="${esc(c?c.banco:"")}" placeholder="ex.: Banco CTT">
+    <label>Tipo</label><input type="text" id="ct" value="${esc(c?c.tipo:"Ordem")}" placeholder="Ordem, Poupança, Cartão…">
+    <label>Identificador nos extratos (IBAN ou número, opcional)</label><input type="text" id="ci" value="${esc(c?c.id:"")}" placeholder="usado na importação">
+    <label>Saldo em</label><input type="date" id="cd" value="${c&&c.saldoData?c.saldoData:""}">
+    <label>Saldo nessa data</label><input type="number" step="0.01" id="cs" value="${c&&c.saldoInicial!=null?c.saldoInicial:""}">
+    <div class="bar"><button class="primary" id="cok">Guardar</button>
+      ${c?`<button id="cdel">Apagar</button>`:""}<button onclick="closeSheet()">Cancelar</button></div>`);
+  document.getElementById("cok").onclick=()=>{
+    const nome=document.getElementById("cn").value.trim(); if(!nome) return;
+    const dados={nome, banco:document.getElementById("cb").value.trim(), tipo:document.getElementById("ct").value.trim()||"Ordem",
+      id:document.getElementById("ci").value.trim()||nome, saldoData:document.getElementById("cd").value||null,
+      saldoInicial: document.getElementById("cs").value===""?null:(parseFloat(document.getElementById("cs").value.replace(",","."))||0)};
+    if(c){ const antigo=c.nome; Object.assign(c,dados);
+      if(antigo!==nome) S.movimentos.forEach(m=>{ if(m.conta===antigo) m.conta=nome; });
+    } else S.contas.push({...dados, envelopes:false});
+    save(); closeSheet(); render();
+  };
+  const dl=document.getElementById("cdel"); if(dl) dl.onclick=()=>{
+    const n=S.movimentos.filter(m=>m.conta===c.nome).length;
+    if(n && !confirm("Esta conta tem "+n+" movimentos. Apagar a conta deixa-os sem conta associada. Continuar?")) return;
+    if(!n && !confirm("Apagar a conta?")) return;
+    S.contas.splice(i,1); save(); closeSheet(); render();
+  };
+}
+function novoMovimento(contaPref){
+  const hoje=new Date().toISOString().slice(0,10);
+  openSheet(`<h2 style="margin:0 0 4px">Lançar movimento</h2>
+    <div class="hint">Para movimentos que não vêm de extratos: juros, dinheiro físico, acertos.</div>
+    <label>Data</label><input type="date" id="nd" value="${hoje}">
+    <label>Conta</label><select id="nc">${S.contas.map(c=>`<option ${c.nome===contaPref?"selected":""}>${esc(c.nome)}</option>`).join("")}</select>
+    <label>Descrição</label><input type="text" id="nt" placeholder="ex.: Juros do depósito">
+    <label>Valor (negativo para saídas)</label><input type="number" step="0.01" id="nv" placeholder="0,00">
+    <label>Categoria</label><select id="ncat"><option>Por rever</option>${S.categorias.map(c=>`<option ${c.nome==="Rendimentos"?"":""}>${esc(c.nome)}</option>`).join("")}</select>
+    <label>Subcategoria</label><input type="text" id="nsub" placeholder="opcional">
+    <div class="bar"><button class="primary" id="nok">Lançar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  document.getElementById("nok").onclick=()=>{
+    const v=parseFloat((document.getElementById("nv").value||"").replace(",","."));
+    const desc=document.getElementById("nt").value.trim();
+    if(isNaN(v)||!desc){ alert("Indique a descrição e o valor."); return; }
+    const mv={id:uid("m"),data:document.getElementById("nd").value||hoje,desc,valor:Math.round(v*100)/100,
+      conta:document.getElementById("nc").value,cat:document.getElementById("ncat").value,
+      sub:document.getElementById("nsub").value.trim(),cartao:"",tag:"",env:[],reemb:[],manual:true,lancado:true};
+    S.movimentos.push(mv); save(); closeSheet();
+    const c=contaDe(mv.conta);
+    if(c&&c.envelopes&&S.envelopes.length) imputar(mv); else render();
+  };
+}
+
+/* ---------- importação ---------- */
+function viewDados(){
+  view.innerHTML=`<div class="wrap">
+    <div class="card"><b>Importar extratos</b>
+      <div class="hint">Banco CTT (.xlsx), ActivoBank (.xlsx) e WiZink (.xls). Os ficheiros são lidos dentro do telemóvel ou do computador; nada é enviado para fora.</div>
+      <label>Ignorar movimentos anteriores a</label><input type="date" id="cdesde" value="${S.cfg.desde||""}">
+      <input type="file" id="fimp" multiple accept=".xlsx,.xls,.csv" style="margin-top:10px">
+      <div id="impout" class="hint">${esc(S.ui.impMsg||"")}</div></div>
+    <div class="card"><b>Cópias de segurança</b>
+      <div class="hint">Esta versão guarda tudo no dispositivo. Para copiar para o Google Drive ou iCloud, use "Exportar ficheiro" em baixo e escolha "Guardar em Ficheiros". Para recuperar ou mudar de equipamento, use "Importar cópia".</div></div>
+    <div class="card"><b>Cópia de segurança</b>
+      <div class="hint">Exporte para passar os dados para outro dispositivo ou para guardar uma cópia. A importação substitui tudo o que está neste dispositivo.</div>
+      <div class="bar"><button class="primary" id="exp">Exportar ficheiro</button><button id="impj">Importar cópia</button></div>
+      <input type="file" id="fjson" accept=".json" style="display:none"></div>
+    <div class="card"><b>Regras</b><div class="hint">${S.regras.length} regras de classificação. Crie novas a partir de qualquer movimento, em "Criar regra".</div>
+      <div class="bar"><button id="reaplicar">Reaplicar a tudo</button></div></div>
+    ${S.ui.erro?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent"><b>Último erro</b><div class="hint" style="color:inherit">${esc(S.ui.erro)}</div>
+      <div class="bar"><button id="errclr">Limpar</button></div></div>`:""}
+    <div class="card"><b>Este dispositivo</b><div class="hint">${S.movimentos.length} movimentos, ${S.envelopes.length} envelopes, ${tagsExistentes().length} tags.<br>
+      Arranque: ${esc(ARRANQUE.origem)}${ARRANQUE.tamanho?" ("+Math.round(ARRANQUE.tamanho/1024)+" KB)":""}.<br>
+      Última alteração: ${S.alterado?esc(S.alterado.slice(0,16).replace("T"," ")):"—"}.<br>
+      Endereço: ${esc(location.host)}.<br>
+      Armazenamento: <span id="lstest">a testar…</span>${ARRANQUE.erro?"<br>Erro de leitura: "+esc(ARRANQUE.erro):""}</div>
+      <div class="bar"><button id="wipe">Apagar tudo</button></div></div>
+  </div>`;
+  document.getElementById("cdesde").onchange=e=>{ S.cfg.desde=e.target.value; save(); };
+  document.getElementById("fimp").onchange=e=>importarFicheiros(e.target.files);
+  document.getElementById("exp").onclick=()=>exportar();
+  document.getElementById("impj").onclick=()=>document.getElementById("fjson").click();
+  document.getElementById("fjson").onchange=e=>{
+    const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+    r.onload=()=>{ try{ S=JSON.parse(r.result); migrate(); save(); render(); alert("Cópia importada."); }catch(err){ alert("Ficheiro inválido."); } };
+    r.readAsText(f);
+  };
+  document.getElementById("reaplicar").onclick=()=>{ let n=0; for(const m of S.movimentos){ if(m.manual) continue; const r=aplicarRegras(m.desc,m.data); if(r){ m.cat=r.c; m.sub=r.s||""; n++; } else { m.cat="Por rever"; m.sub=""; } } save(); render(); alert(n+" movimentos classificados por regras."); };
+  try{ localStorage.setItem("teste.ls","1"); const ok=localStorage.getItem("teste.ls")==="1"; localStorage.removeItem("teste.ls");
+       document.getElementById("lstest").textContent = ok?"a funcionar":"não guarda"; }
+  catch(e){ const el=document.getElementById("lstest"); if(el) el.textContent="indisponível ("+(e&&e.name||"erro")+")"; }
+  const ec=document.getElementById("errclr"); if(ec) ec.onclick=()=>{ S.ui.erro=null; save(); render(); };
+  document.getElementById("wipe").onclick=()=>{ if(confirm("Apagar todos os dados deste dispositivo?")){ localStorage.removeItem(KEY); location.reload(); } };
+}
+
+function norm(s){ return String(s||"").replace(/\s+/g," ").trim(); }
+function excelDate(v){
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v==="number"){ const d=new Date(Date.UTC(1899,11,30+Math.floor(v))); return d.toISOString().slice(0,10); }
+  const s=String(v||"").trim();
+  let m=s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/); if(m) return m[3]+"-"+m[2]+"-"+m[1];
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[0];
+  return null;
+}
+function importarFicheiros(files){
+  const out=document.getElementById("impout");
+  if(typeof XLSX==="undefined"){ S.ui.impMsg="Não foi possível carregar o leitor de ficheiros Excel. Verifique a ligação à internet e recarregue a página."; out.textContent=S.ui.impMsg; return; }
+  if(!files||!files.length){ return; }
+  out.textContent="A ler "+files.length+" ficheiro(s)…";
+  let novos=0, dup=0, fora=0, erros=[], lidos=0;
+  const done=()=>{
+    S.ui.impMsg = `Ficheiros lidos: ${lidos}. Movimentos novos: ${novos}. Repetidos ignorados: ${dup}.`
+      + (fora?` Anteriores à data de corte: ${fora}.`:"")
+      + (erros.length?" Problemas: "+erros.join("; "):"");
+    save(); render();
+  };
+  let pend=files.length;
+  [...files].forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(r.result),{type:"array",cellDates:true});
+        const sh=wb.Sheets[wb.SheetNames[0]];
+        const grid=XLSX.utils.sheet_to_json(sh,{header:1,raw:true});
+        const res=parseGrid(grid,f.name);
+        lidos++;
+        if(!res.length){ erros.push(f.name+": formato não reconhecido ("+(grid.length||0)+" linhas lidas)"); }
+        for(const mv of res){
+          if(S.cfg.desde && mv.data < S.cfg.desde){ fora++; continue; }
+          const k=mv.conta+"|"+mv.data+"|"+mv.desc+"|"+mv.valor.toFixed(2);
+          const ja=S.movimentos.filter(x=>x.conta+"|"+x.data+"|"+x.desc+"|"+x.valor.toFixed(2)===k).length;
+          const rep=res.filter(x=>x.conta+"|"+x.data+"|"+x.desc+"|"+x.valor.toFixed(2)===k).length;
+          if(ja>=rep){ dup++; continue; }
+          const rg=aplicarRegras(mv.desc,mv.data);
+          S.movimentos.push({id:uid("m"),data:mv.data,desc:mv.desc,valor:mv.valor,conta:mv.conta,
+            cat:rg?rg.c:"Por rever",sub:rg?(rg.s||""):"",cartao:mv.cartao||"",tag:"",env:[],manual:false,reembolsoDe:null});
+          novos++;
+        }
+      }catch(e){ erros.push(f.name+": "+(e&&e.message?e.message:e)); }
+      if(--pend===0) done();
+    };
+    r.onerror=()=>{ erros.push(f.name+": não foi possível ler o ficheiro"); if(--pend===0) done(); };
+    r.readAsArrayBuffer(f);
+  });
+}
+function parseGrid(g,fname){
+  const txt=g.slice(0,12).map(r=>Array.from(r||[]).map(x=>String(x==null?"":x)).join("|")).join("\n").toLowerCase();
+  const out=[];
+  if(txt.includes("descrição da transação")||txt.includes("descrição da transacção")||txt.includes("número do cartão")){
+    const hi=g.findIndex(r=>Array.from(r||[]).some(c=>String(c==null?"":c).toLowerCase().includes("descrição da trans")));
+    const H=Array.from(g[hi]||[],x=>String(x==null?"":x).toLowerCase());
+    const iD=H.findIndex(h=>h.includes("data")), iT=H.findIndex(h=>h.includes("descrição")),
+          iV=H.findIndex(h=>h.includes("montante transa")), iC=H.findIndex(h=>h.includes("cartão"));
+    for(let i=hi+1;i<g.length;i++){ const r=g[i]||[]; const d=excelDate(r[iD]); const v=parseFloat(r[iV]);
+      if(!d||isNaN(v)) continue;
+      out.push({data:d,desc:norm(r[iT]),valor:-Math.round(v*100)/100,conta:"Cartão Wizink",cartao:"*"+String(r[iC]||"").slice(-4)});
+    }
+    return out;
+  }
+  if(txt.includes("histórico de conta")||txt.includes("data lanc")){
+    const cab=g.findIndex(r=>Array.from(r||[]).some(c=>String(c==null?"":c).toLowerCase().includes("data lanc")));
+    let conta="ActivoBank";
+    const m=Array.from(g[0]||[]).map(x=>String(x==null?"":x)).join(" ").match(/N[ÚU]MERO\s+(\d+)/i); if(m) conta=m[1];
+    const cc=S.contas.find(c=>c.id===conta); const nome=cc?cc.nome:conta;
+    for(let i=cab+1;i<g.length;i++){ const r=g[i]||[]; const d=excelDate(r[0]); const v=parseFloat(r[3]);
+      if(!d||isNaN(v)||!r[2]) continue;
+      out.push({data:d,desc:norm(r[2]),valor:Math.round(v*100)/100,conta:nome});
+    }
+    return out;
+  }
+  if(txt.includes("movimentos de conta")||txt.includes("data valor")){
+    const cab=g.findIndex(r=>Array.from(r||[]).some(c=>String(c==null?"":c).toLowerCase()==="descrição"));
+    const H=Array.from(g[cab]||[],x=>String(x==null?"":x).toLowerCase());
+    const iD=H.indexOf("data"), iT=H.indexOf("descrição"), iV=H.findIndex(h=>h.includes("montante")), iC=H.indexOf("conta");
+    for(let i=cab+1;i<g.length;i++){ const r=g[i]||[]; const d=excelDate(r[iD]); const v=parseFloat(r[iV]);
+      if(!d||isNaN(v)) continue;
+      const ib=String(r[iC]||""); const cc=S.contas.find(c=>c.id===ib);
+      const desc=norm(r[iT]); const cm=desc.match(/Cartao (\d{4})/i);
+      out.push({data:d,desc,valor:Math.round(v*100)/100,conta:cc?cc.nome:(ib||"CTT Ordem"),cartao:cm?"*"+cm[1]:""});
+    }
+    return out;
+  }
+  return out;
+}
+
+/* ---------- sheet ---------- */
+function openSheet(html){ document.getElementById("sheetIn").innerHTML=html; document.getElementById("sheet").classList.add("on"); }
+function closeSheet(){ document.getElementById("sheet").classList.remove("on"); }
+document.getElementById("sheet").onclick=e=>{ if(e.target.id==="sheet") closeSheet(); };
+
+window.addEventListener("error",e=>{ S.ui=S.ui||{}; S.ui.erro=(e.message||"")+" @"+((e.filename||"")+":"+(e.lineno||"")); try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(_){} });
+window.addEventListener("unhandledrejection",e=>{ S.ui=S.ui||{}; S.ui.erro="promessa: "+((e.reason&&e.reason.message)||e.reason||""); });
+load(); render(); recuperarLocal();
+
+async function recuperarLocal(){
+  if(!S.novo) return;
+  const txt=await idbLer(); if(!txt) return;
+  try{
+    const alt=JSON.parse(txt);
+    if(!alt||!alt.movimentos) return;
+    S=alt; migrate(); S.novo=false;
+    try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
+    ARRANQUE={origem:"cópia local (IndexedDB)",tamanho:txt.length,erro:null};
+    render();
+    const s=document.getElementById("sttl"); if(s) s.textContent="Dados recuperados do próprio dispositivo.";
+  }catch(e){}
+}
+
+async function verificarDrive(){
+  const m=await mcp(); if(!m) return;
+  const l=await driveLista(); if(!l||l.erro||!l.length) return;
+  const f=l[0];
+  const localT = Math.max(
+    S.drive&&S.drive.ultima ? new Date(S.drive.ultima).getTime() : 0,
+    S.alterado ? new Date(S.alterado).getTime() : 0);
+  const remoteT = f.createdTime ? new Date(f.createdTime).getTime() : 0;
+  if(S.novo){
+    const s=document.getElementById("sttl"); if(s) s.textContent="A recuperar a cópia do Drive…";
+    const r=await driveCarregar(f.id); S.novo=false; save(); render();
+    if(s) s.textContent = r.ok ? ("Recuperado do Drive: "+esc(f.title)) : r.msg;
+    return;
+  }
+  if(remoteT <= localT + 60000) return;
+  const quando=(f.createdTime||"").slice(0,16).replace("T"," ");
+  openSheet(`<h2 style="margin:0 0 4px">Há uma cópia mais recente no Drive</h2>
+    <div class="hint">No Drive: <b>${esc(f.title)}</b> (${esc(quando)}).<br>
+    Neste dispositivo: ${S.alterado?("última alteração "+esc(S.alterado.slice(0,16).replace("T"," "))):"sem data"}.<br>
+    Carregar substitui os dados deste dispositivo.</div>
+    <div class="bar"><button class="primary" id="vdok">Carregar do Drive</button>
+      <button id="vdno">Manter este dispositivo</button></div>`);
+  document.getElementById("vdno").onclick=()=>closeSheet();
+  document.getElementById("vdok").onclick=async ()=>{
+    openSheet('<div class="hint">A carregar…</div>');
+    const r=await driveCarregar(f.id); closeSheet(); render();
+    const s=document.getElementById("sttl"); if(s) s.textContent=r.msg;
+  };
+}
+</script>
+</body>
+</html>
