@@ -426,11 +426,17 @@ function viewGeral(){
   const nv=porNivel(lanc);
   const pend=S.movimentos.filter(m=>m.cat==="Por rever").length;
   const imp=porImputar().length;
-  const contasHtml=S.contas.map(c=>{
-    const s=saldoConta(c);
-    return `<div class="row" style="padding:6px 0"><div>${esc(c.nome)}<div class="sm mut">${esc(c.banco)}</div></div>
-      <div class="v ${s<0?"neg":""}">${s===null?'<span class="sm mut">definir saldo</span>':EUR(s)}</div></div>`;
-  }).join("");
+  const linhaConta=c=>{ const s=saldoConta(c);
+    return `<div class="tap" data-conta="${esc(c.nome)}"><div class="row"><div>${esc(c.nome)}
+      <div class="sm mut">${esc([c.banco,c.tipo,c.titular].filter(Boolean).join(" · "))}</div></div>
+      <div class="v ${s<0?"neg":""}">${s===null?'<span class="sm mut">definir saldo</span>':EUR(s)} ›</div></div></div>`; };
+  const disp=S.contas.filter(c=>!aplicada(c)), apl=S.contas.filter(aplicada);
+  const soma=l=>l.reduce((t,c)=>{ const s=saldoConta(c); return t+(s||0); },0);
+  const contasHtml=`${disp.map(linhaConta).join("")}
+    ${disp.length?`<div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px"><div class="sm mut">Disponível</div><div class="v">${EUR(soma(disp))}</div></div>`:""}
+    ${apl.length?`<div class="sm mut" style="margin:12px 0 2px">Aplicado</div>${apl.map(linhaConta).join("")}
+      <div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px"><div class="sm mut">Aplicado</div><div class="v">${EUR(soma(apl))}</div></div>`:""}
+    ${(disp.length&&apl.length)?`<div class="row" style="border-top:2px solid var(--line);padding-top:8px;margin-top:6px"><div><b>Total</b></div><div class="v"><b>${EUR(soma(disp)+soma(apl))}</b></div></div>`:""}`;
   const envHtml = S.envelopes.length? S.envelopes.map(e=>`<div class="row" style="padding:6px 0"><div>${esc(e.nome)}</div><div class="v">${EUR(envSaldo(e))}</div></div>`).join("")
     : `<div class="sm mut">Sem envelopes. Crie no separador Envelopes.</div>`;
   const max=Math.max(...Object.values(nv.n1),1);
@@ -473,6 +479,8 @@ function viewGeral(){
   wirePeriodo();
   const gr=document.getElementById("goRever"); if(gr) gr.onclick=()=>{ S.ui.fCat="Por rever"; setTab("movs"); };
   const gi=document.getElementById("goImp"); if(gi) gi.onclick=()=>{ S.ui.fEstado="imputar"; setTab("movs"); };
+  document.querySelectorAll("[data-conta]").forEach(d=>d.onclick=()=>{
+    S.ui.fContas=[d.dataset.conta]; S.ui.fCat="(todas)"; S.ui.fGrupo="(todos)"; S.ui.fEstado=""; setTab("movs"); });
   document.querySelectorAll("[data-n1]").forEach(d=>d.onclick=()=>{ S.ui.exp1 = (S.ui.exp1===d.dataset.n1)?null:d.dataset.n1; S.ui.exp2=null; save(); render(); });
   document.querySelectorAll("[data-cat]").forEach(d=>d.onclick=e=>{ e.stopPropagation(); S.ui.fCat=d.dataset.cat; S.ui.fEstado=""; setTab("movs"); });
 }
@@ -644,6 +652,10 @@ function listar(){
     document.getElementById("btag").onclick=()=>tagVarios();
   }
 }
+const TIPOS_CONTA=["Conta à ordem","Conta ordenado","Conta poupança","Depósito a prazo","PPR","Investimentos","Cartão de crédito","Dinheiro","Outro"];
+const TIPOS_APLICADO=["Depósito a prazo","PPR","Investimentos"];
+function aplicada(c){ return TIPOS_APLICADO.includes(c.tipo); }
+function titulares(){ const s=new Set(); S.contas.forEach(c=>{ if(c.titular) c.titular.split("/").forEach(x=>{ if(x.trim()) s.add(x.trim()); }); }); return [...s].sort(); }
 function grupos(){ const g=[]; S.categorias.forEach(c=>{ const n=c.n1||"Por classificar"; if(!g.includes(n)) g.push(n); }); return g; }
 function catsDe(n1){ return S.categorias.filter(c=>(c.n1||"Por classificar")===n1).map(c=>c.nome); }
 function grupoDe(cat){ const c=S.categorias.find(x=>x.nome===cat); return c?(c.n1||"Por classificar"):"Por rever"; }
@@ -909,9 +921,11 @@ function repartirProporcional(m){
 function viewEnv(){
   const totalEnv=S.envelopes.reduce((t,e)=>t+envSaldo(e),0);
   const saldoTot=S.contas.reduce((t,c)=>{ const s=saldoConta(c); return t+(s||0); },0);
+  const aplTot=S.contas.filter(aplicada).reduce((t,c)=>{ const s=saldoConta(c); return t+(s||0); },0);
   view.innerHTML=`<div class="wrap">
     <div class="card"><div class="row"><div>Reservado em envelopes</div><div class="big">${EUR(totalEnv)}</div></div>
       <div class="row sm mut"><div>Saldo total das contas</div><div>${EUR(saldoTot)}</div></div>
+      <div class="row sm mut"><div>Dos quais aplicados</div><div>${EUR(aplTot)}</div></div>
       <div class="row sm"><div>Não reservado</div><div>${EUR(saldoTot-totalEnv)}</div></div></div>
     ${S.envelopes.map(e=>`<div class="card"><div class="row"><div><b>${esc(e.nome)}</b>
       <div class="sm mut">Inicial ${EUR(e.saldoInicial||0)}</div></div><div class="big">${EUR(envSaldo(e))}</div></div>
@@ -963,7 +977,7 @@ function ajustar(id){
 function viewContas(){
   view.innerHTML=`<div class="wrap">
     ${S.contas.map((c,i)=>{ const s=saldoConta(c); return `<div class="card">
-      <div class="row"><div><b>${esc(c.nome)}</b><div class="sm mut">${esc(c.banco)} · ${esc(c.tipo)}</div></div>
+      <div class="row"><div><b>${esc(c.nome)}</b><div class="sm mut">${esc([c.banco,c.tipo,c.titular].filter(Boolean).join(" · "))}</div></div>
       <div class="big">${s===null?'<span class="sm mut">—</span>':EUR(s)}</div></div>
       <label>Saldo em</label><input type="date" data-sd="${i}" value="${c.saldoData||""}">
       <label>Saldo nessa data</label><input type="number" step="0.01" data-si="${i}" value="${c.saldoInicial==null?"":c.saldoInicial}" placeholder="não definido">
@@ -1021,7 +1035,12 @@ function editConta(i){
   openSheet(`<h2 style="margin:0 0 4px">${c?"Editar conta":"Nova conta"}</h2>
     <label>Nome</label><input type="text" id="cn" value="${esc(c?c.nome:"")}" placeholder="ex.: Poupança CTT">
     <label>Banco</label><input type="text" id="cb" value="${esc(c?c.banco:"")}" placeholder="ex.: Banco CTT">
-    <label>Tipo</label><input type="text" id="ct" value="${esc(c?c.tipo:"Ordem")}" placeholder="Ordem, Poupança, Cartão…">
+    <label>Tipo</label>
+    <select id="ct">${TIPOS_CONTA.map(x=>`<option ${c&&c.tipo===x?"selected":""}>${esc(x)}</option>`).join("")}
+      ${c&&c.tipo&&!TIPOS_CONTA.includes(c.tipo)?`<option selected>${esc(c.tipo)}</option>`:""}</select>
+    <label>Titular</label>
+    <input type="text" id="ctit" list="titl" value="${esc(c&&c.titular?c.titular:"")}" placeholder="ex.: José, ou José / Patricia">
+    <datalist id="titl">${titulares().map(x=>`<option>${esc(x)}</option>`).join("")}</datalist>
     <label>Identificador nos extratos (IBAN ou número, opcional)</label><input type="text" id="ci" value="${esc(c?c.id:"")}" placeholder="usado na importação">
     <label>Saldo em</label><input type="date" id="cd" value="${c&&c.saldoData?c.saldoData:""}">
     <label>Saldo nessa data</label><input type="number" step="0.01" id="cs" value="${c&&c.saldoInicial!=null?c.saldoInicial:""}">
@@ -1029,7 +1048,8 @@ function editConta(i){
       ${c?`<button id="cdel">Apagar</button>`:""}<button onclick="closeSheet()">Cancelar</button></div>`);
   document.getElementById("cok").onclick=()=>{
     const nome=document.getElementById("cn").value.trim(); if(!nome) return;
-    const dados={nome, banco:document.getElementById("cb").value.trim(), tipo:document.getElementById("ct").value.trim()||"Ordem",
+    const dados={nome, banco:document.getElementById("cb").value.trim(), tipo:document.getElementById("ct").value,
+      titular:document.getElementById("ctit").value.trim(),
       id:document.getElementById("ci").value.trim()||nome, saldoData:document.getElementById("cd").value||null,
       saldoInicial: document.getElementById("cs").value===""?null:(parseFloat(document.getElementById("cs").value.replace(",","."))||0)};
     if(c){ const antigo=c.nome; Object.assign(c,dados);
