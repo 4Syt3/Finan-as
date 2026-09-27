@@ -50,14 +50,18 @@ h2{font-size:15px;margin:18px 12px 8px;font-weight:650}
 .pos{color:var(--pos)} .neg{color:var(--neg)}
 .mut{color:var(--muted)}
 .sm{font-size:12px}
-button,select,input,textarea{font:inherit;color:inherit}
-button{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
+button,select,input,textarea{font:inherit;color:inherit;font-size:15px}
+button{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:0 14px;height:38px;line-height:36px;cursor:pointer;white-space:nowrap}
 button.primary{background:var(--accent);color:#fff;border-color:transparent}
 button.ghost{background:transparent}
 button:active{opacity:.7}
-select,input[type=text],input[type=number],input[type=date]{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;max-width:100%;font-size:16px}
+select,input[type=text],input[type=number],input[type=date]{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 10px;height:38px;width:100%;max-width:100%;font-size:16px;-webkit-appearance:none;appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 16px,calc(100% - 12px) 16px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px}
+input[type=date]{min-width:0}
 @supports (-webkit-touch-callout:none){ body{min-height:100svh} }
-label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}
+.sheet .bar{margin-top:14px}
+.sheet .in>.bar:last-of-type{position:sticky;bottom:0;background:var(--card);padding-top:10px}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:30}
 nav.tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:10px 4px 12px;font-size:11px;color:var(--muted)}
 nav.tabs button.on{color:var(--accent);font-weight:650}
@@ -71,13 +75,14 @@ nav.tabs .ico{display:block;font-size:17px;line-height:1.2}
 .daysep{padding:6px 12px;background:var(--bg);font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
 .badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--muted);margin-right:4px}
 .badge.w{background:var(--warn);color:var(--warnink)}
-.filters{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;scrollbar-width:none}
+.filters{display:flex;gap:8px;align-items:center;overflow-x:auto;padding:8px 12px;scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
-.filters select,.filters input{width:auto;min-width:118px;flex:0 0 auto;padding:7px 9px;font-size:13px}
+.filters>*{flex:0 0 auto}
+.filters select,.filters input{width:auto;min-width:150px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
 .sheet.on{display:block}
 .sheet .in{position:absolute;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--card);border-radius:16px 16px 0 0;padding:14px 14px calc(20px + env(safe-area-inset-bottom,0px))}
-.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -95,7 +100,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
     <div><h1 id="ttl">Visão geral</h1><div class="sub" id="sttl"></div></div>
     <div style="display:flex;gap:6px;align-items:center">
       <button id="saveBtn" title="Exportar cópia">Exportar</button>
-      <button class="ghost" id="themeBtn" title="Tema">◐</button>
+      <button class="ghost" id="themeBtn" title="Tema" style="width:38px;padding:0">◐</button>
     </div>
   </div>
 </header>
@@ -473,51 +478,120 @@ function viewGeral(){
 }
 
 function viewMovs(){
-  const cats=["(todas)","Por rever",...S.categorias.map(c=>c.nome)];
-  const contas=["(todas)",...S.contas.map(c=>c.nome)];
-  const tags=["(todas)",...tagsExistentes()];
   const f=S.ui;
-  view.innerHTML = selPeriodo() + `
+  const per={mes:"Este mês",ano:"Este ano",tudo:"Tudo",cust:"Datas"}[f.per]||"Datas";
+  const cat = (f.fCat&&f.fCat!=="(todas)") ? f.fCat : ((f.fGrupo&&f.fGrupo!=="(todos)") ? f.fGrupo : (f.fEstado==="rever"?"Por rever":(f.fEstado==="imputar"?"Por imputar":"Categorias")));
+  const contasSel=f.fContas||[];
+  const contas = contasSel.length ? (contasSel.length===1?contasSel[0]:contasSel.length+" contas") : "Contas";
+  const temVal = (f.fSinal&&f.fSinal!=="todos") || f.fMin || f.fMax;
+  const val = temVal ? ((f.fSinal==="ent"?"Entradas":f.fSinal==="sai"?"Saídas":"Valores")+((f.fMin||f.fMax)?" "+(f.fMin||0)+"–"+(f.fMax||"∞"):"")) : "Entradas / saídas";
+  const on=x=>x?"primary":"";
+  view.innerHTML = `
+  <div class="filters">
+    <button id="bdatas" class="${on(f.per!=="mes")}">${esc(per)} ▾</button>
+    <button id="bcats" class="${on(cat!=="Categorias")}">${esc(cat)} ▾</button>
+    <button id="bcontas" class="${on(contasSel.length)}">${esc(contas)} ▾</button>
+    <button id="fsel" class="${f.selMode?"primary":""}">${f.selMode?"✓ Selecionar":"Selecionar"}</button>
+    <button id="fnovo" class="primary">+ Movimento</button>
+  </div>
   <div class="filters">
     <input type="text" id="fq" placeholder="Procurar…" value="${esc(f.fQ||"")}">
-    <select id="fcat">${cats.map(c=>`<option ${c===(f.fCat||"(todas)")?"selected":""}>${esc(c)}</option>`).join("")}</select>
-    <select id="fconta">${contas.map(c=>`<option ${c===(f.fConta||"(todas)")?"selected":""}>${esc(c)}</option>`).join("")}</select>
-    <select id="ftag">${tags.map(c=>`<option ${c===(f.fTag||"(todas)")?"selected":""}>${esc(c)}</option>`).join("")}</select>
-    <select id="festado">
-      <option value="">(todos)</option>
-      <option value="rever" ${f.fEstado==="rever"?"selected":""}>Por rever</option>
-      <option value="imputar" ${f.fEstado==="imputar"?"selected":""}>Por imputar</option>
-      <option value="desp" ${f.fEstado==="desp"?"selected":""}>Só despesas</option>
-      <option value="rec" ${f.fEstado==="rec"?"selected":""}>Só entradas</option>
-    </select>
-    <button id="fclear">Limpar</button>
-    <button id="fsel" class="${S.ui.selMode?"primary":""}">${S.ui.selMode?"✓ Selecionar":"Selecionar"}</button>
-    <button id="fnovo" class="primary">+ Movimento</button>
+    <button id="bval" class="${on(temVal)}">${esc(val)} ▾</button>
+    <button id="fclear">Limpar filtros</button>
   </div>
   <div class="wrap"><div id="mvsum" class="card"></div></div>
   <div class="wrap" id="mvlist"></div>`;
-  wirePeriodo();
-  const upd=()=>{ S.ui.fQ=document.getElementById("fq").value;
-    S.ui.fCat=document.getElementById("fcat").value; S.ui.fConta=document.getElementById("fconta").value;
-    S.ui.fTag=document.getElementById("ftag").value; S.ui.fEstado=document.getElementById("festado").value;
-    save(); listar(); };
-  ["fq","fcat","fconta","ftag","festado"].forEach(id=>{ const el=document.getElementById(id); el.oninput=upd; el.onchange=upd; });
+
+  document.getElementById("fq").oninput=e=>{ S.ui.fQ=e.target.value; save(); listar(); };
   document.getElementById("fsel").onclick=()=>{ S.ui.selMode=!S.ui.selMode; S.ui.sel=[]; save(); render(); };
-  document.getElementById("fnovo").onclick=()=>novoMovimento(S.ui.fConta&&S.ui.fConta!=="(todas)"?S.ui.fConta:null);
-  document.getElementById("fclear").onclick=()=>{ S.ui.fQ="";S.ui.fCat="(todas)";S.ui.fConta="(todas)";S.ui.fTag="(todas)";S.ui.fEstado=""; save(); render(); };
+  document.getElementById("fnovo").onclick=()=>novoMovimento(contasSel.length===1?contasSel[0]:null);
+  document.getElementById("fclear").onclick=()=>{ Object.assign(S.ui,{fQ:"",fCat:"(todas)",fGrupo:"(todos)",fSub:"",fContas:[],fEstado:"",fSinal:"todos",fMin:"",fMax:"",fTag:"(todas)"}); save(); render(); };
+
+  document.getElementById("bdatas").onclick=()=>{
+    const [a,b]=periodo();
+    openSheet(`<h2 style="margin:0 0 6px">Período</h2>
+      <div class="bar">${[["tudo","Tudo"],["ano","Este ano"],["mes","Este mês"]].map(([k,l])=>`<button data-p="${k}" class="${f.per===k?"primary":""}">${l}</button>`).join("")}</div>
+      <label>De</label><input type="date" id="pd" value="${a}">
+      <label>Até</label><input type="date" id="pa" value="${b}">
+      <div class="bar"><button class="primary" id="pok">Aplicar datas</button><button onclick="closeSheet()">Fechar</button></div>`);
+    document.querySelectorAll("[data-p]").forEach(x=>x.onclick=()=>{ S.ui.per=x.dataset.p; save(); closeSheet(); render(); });
+    document.getElementById("pok").onclick=()=>{ S.ui.per="cust"; S.ui.de=document.getElementById("pd").value; S.ui.ate=document.getElementById("pa").value; save(); closeSheet(); render(); };
+  };
+
+  document.getElementById("bcats").onclick=()=>{
+    const g=f.fGrupo||"(todos)";
+    const cats = g==="(todos)" ? S.categorias.map(c=>c.nome) : catsDe(g);
+    const subs = (f.fCat&&f.fCat!=="(todas)") ? subsDe(f.fCat) : [];
+    openSheet(`<h2 style="margin:0 0 6px">Categorias</h2>
+      <label>Grupo</label>
+      <select id="sg"><option>(todos)</option>${grupos().map(x=>`<option ${x===g?"selected":""}>${esc(x)}</option>`).join("")}</select>
+      <label>Categoria</label>
+      <select id="sc"><option>(todas)</option>${cats.map(x=>`<option ${x===f.fCat?"selected":""}>${esc(x)}</option>`).join("")}</select>
+      <label>Subcategoria</label>
+      <select id="ss"><option value="">(todas)</option>${subs.map(x=>`<option ${x===f.fSub?"selected":""}>${esc(x)}</option>`).join("")}</select>
+      <label>Estado</label>
+      <select id="se"><option value="">(todos)</option>
+        <option value="rever" ${f.fEstado==="rever"?"selected":""}>Por rever</option>
+        <option value="imputar" ${f.fEstado==="imputar"?"selected":""}>Por imputar a envelopes</option></select>
+      <div class="bar"><button class="primary" id="cok">Aplicar</button>
+        <button id="climpar">Limpar</button><button onclick="closeSheet()">Fechar</button></div>`);
+    const sg=document.getElementById("sg"), sc=document.getElementById("sc"), ss=document.getElementById("ss");
+    sg.onchange=()=>{ const lista = sg.value==="(todos)" ? S.categorias.map(c=>c.nome) : catsDe(sg.value);
+      sc.innerHTML='<option>(todas)</option>'+lista.map(x=>`<option>${esc(x)}</option>`).join(""); ss.innerHTML='<option value="">(todas)</option>'; };
+    sc.onchange=()=>{ const lista = sc.value==="(todas)" ? [] : subsDe(sc.value);
+      ss.innerHTML='<option value="">(todas)</option>'+lista.map(x=>`<option>${esc(x)}</option>`).join(""); };
+    document.getElementById("climpar").onclick=()=>{ Object.assign(S.ui,{fGrupo:"(todos)",fCat:"(todas)",fSub:"",fEstado:""}); save(); closeSheet(); render(); };
+    document.getElementById("cok").onclick=()=>{
+      S.ui.fGrupo=sg.value; S.ui.fCat=sc.value; S.ui.fSub=ss.value; S.ui.fEstado=document.getElementById("se").value;
+      save(); closeSheet(); render(); };
+  };
+
+  document.getElementById("bcontas").onclick=()=>{
+    const escolhidas=new Set(contasSel);
+    openSheet(`<h2 style="margin:0 0 6px">Contas</h2>
+      <div class="list">${S.contas.map(c=>`<div class="tap" data-ct="${esc(c.nome)}" style="padding:10px 12px">
+        <div class="row"><div id="ct_${esc(c.nome).replace(/[^A-Za-z0-9]/g,"_")}">${escolhidas.has(c.nome)?"☑":"☐"} ${esc(c.nome)}</div><div class="sm mut">${esc(c.banco||"")}</div></div></div>`).join("")||'<div class="hint">Sem contas.</div>'}</div>
+      <div class="bar"><button class="primary" id="ctok">Aplicar</button><button id="ctnone">Todas</button><button onclick="closeSheet()">Fechar</button></div>`);
+    document.querySelectorAll("[data-ct]").forEach(d=>d.onclick=()=>{
+      const n=d.dataset.ct; if(escolhidas.has(n)) escolhidas.delete(n); else escolhidas.add(n);
+      const el=d.querySelector("div div"); if(el) el.textContent=(escolhidas.has(n)?"☑":"☐")+" "+n; });
+    document.getElementById("ctnone").onclick=()=>{ S.ui.fContas=[]; save(); closeSheet(); render(); };
+    document.getElementById("ctok").onclick=()=>{ S.ui.fContas=[...escolhidas]; save(); closeSheet(); render(); };
+  };
+
+  document.getElementById("bval").onclick=()=>{
+    openSheet(`<h2 style="margin:0 0 6px">Entradas, saídas e valores</h2>
+      <div class="bar">${[["todos","Tudo"],["ent","Só entradas"],["sai","Só saídas"]].map(([k,l])=>`<button data-s="${k}" class="${(f.fSinal||"todos")===k?"primary":""}">${l}</button>`).join("")}</div>
+      <div class="hint">Intervalo de valores, em valor absoluto.</div>
+      <label>De</label><input type="number" step="0.01" id="vmin" value="${f.fMin||""}" placeholder="0">
+      <label>Até</label><input type="number" step="0.01" id="vmax" value="${f.fMax||""}" placeholder="sem limite">
+      <div class="bar"><button class="primary" id="vok">Aplicar</button><button id="vlimpar">Limpar</button><button onclick="closeSheet()">Fechar</button></div>`);
+    let sinal=f.fSinal||"todos";
+    document.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{ sinal=x.dataset.s;
+      document.querySelectorAll("[data-s]").forEach(y=>y.className=(y.dataset.s===sinal?"primary":"")); });
+    document.getElementById("vlimpar").onclick=()=>{ Object.assign(S.ui,{fSinal:"todos",fMin:"",fMax:""}); save(); closeSheet(); render(); };
+    document.getElementById("vok").onclick=()=>{ S.ui.fSinal=sinal; S.ui.fMin=document.getElementById("vmin").value; S.ui.fMax=document.getElementById("vmax").value; save(); closeSheet(); render(); };
+  };
   listar();
 }
 function filtrados(){
-  const f=S.ui;
+  const f=S.ui, contas=f.fContas||[];
+  const min=(f.fMin!==""&&f.fMin!=null)?parseFloat(f.fMin):null;
+  const max=(f.fMax!==""&&f.fMax!=null)?parseFloat(f.fMax):null;
   return S.movimentos.filter(m=>{
     if(!noPeriodo(m)) return false;
     if(f.fQ && !m.desc.toLowerCase().includes(f.fQ.toLowerCase())) return false;
+    if(f.fGrupo && f.fGrupo!=="(todos)" && !componentes(m).some(c=>niveis(c).n1===f.fGrupo)) return false;
     if(f.fCat && f.fCat!=="(todas)" && !componentes(m).some(c=>c.cat===f.fCat)) return false;
-    if(f.fConta && f.fConta!=="(todas)" && m.conta!==f.fConta) return false;
+    if(f.fSub && (m.sub||"")!==f.fSub) return false;
+    if(contas.length && !contas.includes(m.conta)) return false;
     if(f.fTag && f.fTag!=="(todas)" && m.tag!==f.fTag) return false;
+    if(f.fSinal==="ent" && m.valor<=0) return false;
+    if(f.fSinal==="sai" && m.valor>=0) return false;
+    const abs=Math.abs(m.valor);
+    if(min!=null && !isNaN(min) && abs<min) return false;
+    if(max!=null && !isNaN(max) && abs>max) return false;
     if(f.fEstado==="rever" && m.cat!=="Por rever") return false;
-    if(f.fEstado==="desp" && !componentes(m).some(c=>c.tipo==="Despesa")) return false;
-    if(f.fEstado==="rec" && m.valor<=0) return false;
     if(f.fEstado==="imputar"){ const c=contaDe(m.conta); if(!c||!c.envelopes) return false;
       const s=(m.env||[]).reduce((t,a)=>t+a.valor,0); if(Math.abs(s-m.valor)<=0.005) return false; }
     return true;
@@ -661,7 +735,7 @@ function detalhe(id){
       ${parts.map((r,i)=>{ const e=byId(r.mov); return `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
         <div style="min-width:0"><div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.desc)}</div>
         <div class="sm mut">${fdate(e.data)} · ${esc(e.cat)} · despesa ${EUR(e.valor)}</div></div>
-        <div style="text-align:right"><div class="v">${EUR(r.valor)}</div><button class="sm" data-rm="${i}">remover</button></div></div>`;}).join("")}
+        <div style="text-align:right"><div class="v">${EUR(r.valor)}</div><button data-rm="${i}" style="height:30px;line-height:28px;font-size:13px;padding:0 10px">remover</button></div></div>`;}).join("")}
       ${Math.abs(sobra)>0.005?`<div class="sm mut" style="margin-top:6px">Por atribuir: ${EUR(sobra)} (fica em ${esc(m.cat)})</div>`:""}
       <div class="bar"><button id="dreemb2">Acrescentar despesa…</button></div></div>`:""}
     ${(m.valor<0&&recebido>0.005)?`<div class="card" style="margin-top:12px"><div class="row"><div class="sm mut">Reembolsos recebidos</div><div class="v">${EUR(recebido)}</div></div>
