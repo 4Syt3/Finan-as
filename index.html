@@ -557,12 +557,25 @@ function selGrupoCat(idG,idC,catAtual){
     <label>Categoria</label>
     <select id="${idC}">${(catAtual==="Por rever"?["Por rever"]:catsDe(g)).map(x=>`<option ${x===catAtual?"selected":""}>${esc(x)}</option>`).join("")}</select>`;
 }
-function ligarGrupoCat(idG,idC){
+function ligarGrupoCat(idG,idC,idSubList){
   const g=document.getElementById(idG), c=document.getElementById(idC);
   if(!g||!c) return;
+  const subs=()=>{ if(!idSubList) return; const dl=document.getElementById(idSubList);
+    if(dl) dl.innerHTML=opcoesSub(c.value); };
   g.onchange=()=>{ const lista = g.value==="Por rever" ? ["Por rever"] : catsDe(g.value);
-    c.innerHTML=lista.map(x=>`<option>${esc(x)}</option>`).join(""); };
+    c.innerHTML=lista.map(x=>`<option>${esc(x)}</option>`).join(""); subs(); };
+  c.onchange=subs; subs();
 }
+function subsDe(cat){ const s=new Set();
+  S.movimentos.forEach(m=>{ if(m.cat===cat && m.sub) s.add(m.sub); });
+  S.regras.forEach(r=>{ if(r.c===cat && r.s) s.add(r.s); });
+  return [...s].sort(); }
+function subsNoutras(sub,cat){ if(!sub) return [];
+  const alvo=sub.toLowerCase(), c=new Set();
+  S.movimentos.forEach(m=>{ if(m.sub && m.sub.toLowerCase()===alvo && m.cat!==cat) c.add(m.cat); });
+  S.regras.forEach(r=>{ if(r.s && r.s.toLowerCase()===alvo && r.c!==cat) c.add(r.c); });
+  return [...c]; }
+function opcoesSub(cat){ return subsDe(cat).map(x=>`<option>${esc(x)}</option>`).join(""); }
 function tagsExistentes(){ const s=new Set(); S.movimentos.forEach(m=>{ if(m.tag) s.add(m.tag); }); S.tags.forEach(t=>s.add(t)); return [...s].sort(); }
 
 /* ---------- detalhe do movimento ---------- */
@@ -581,7 +594,8 @@ function detalhe(id){
 
     ${selGrupoCat("dn1","dcat",m.cat)}
     <label>Subcategoria</label>
-    <input type="text" id="dsub" value="${esc(m.sub||"")}" placeholder="opcional">
+    <input type="text" id="dsub" list="subl" value="${esc(m.sub||"")}" placeholder="opcional — escreva para criar">
+    <datalist id="subl">${opcoesSub(m.cat)}</datalist>
     <label>Tag</label>
     <input type="text" id="dtag" list="tagl" value="${esc(m.tag||"")}" placeholder="ex.: Férias 2026">
     <datalist id="tagl">${tagsExistentes().map(t=>`<option>${esc(t)}</option>`).join("")}</datalist>
@@ -611,11 +625,16 @@ function detalhe(id){
     </div>
     <div class="hint">A categoria que escolher aqui prevalece sempre sobre as regras.</div>
   `);
-  ligarGrupoCat("dn1","dcat");
+  ligarGrupoCat("dn1","dcat","subl");
   document.getElementById("dsave").onclick=()=>{
     const catAnt=m.cat;
-    m.cat=document.getElementById("dcat").value;
-    m.sub=document.getElementById("dsub").value.trim();
+    const novaCat=document.getElementById("dcat").value;
+    const novaSub=document.getElementById("dsub").value.trim();
+    const noutras=subsNoutras(novaSub,novaCat);
+    if(noutras.length && !subsDe(novaCat).some(x=>x.toLowerCase()===novaSub.toLowerCase())){
+      if(!confirm("A subcategoria \""+novaSub+"\" já existe em: "+noutras.join(", ")+".\nQuer mesmo usá-la também em "+novaCat+"?")) return;
+    }
+    m.cat=novaCat; m.sub=novaSub;
     const tg=document.getElementById("dtag").value.trim();
     m.tag=tg; if(tg && !S.tags.includes(tg)) S.tags.push(tg);
     m.manual=true; save();
@@ -700,9 +719,10 @@ function criarRegra(m){
     <div class="hint">Todos os movimentos, passados e futuros, cuja descrição contenha este texto passam a ter esta categoria.</div>
     <label>Texto</label><input type="text" id="rp" value="${esc(base)}">
     ${selGrupoCat("rn1","rc",m.cat)}
-    <label>Subcategoria</label><input type="text" id="rs" value="${esc(m.sub||"")}">
+    <label>Subcategoria</label><input type="text" id="rs" list="rsubl" value="${esc(m.sub||"")}">
+    <datalist id="rsubl"></datalist>
     <div class="bar"><button class="primary" id="rok">Criar e aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
-  ligarGrupoCat("rn1","rc");
+  ligarGrupoCat("rn1","rc","rsubl");
   document.getElementById("rok").onclick=()=>{
     const p=document.getElementById("rp").value.trim(); if(!p) return;
     S.regras.unshift({id:uid("r"),p,c:document.getElementById("rc").value,s:document.getElementById("rs").value.trim(),desde:null});
@@ -869,9 +889,10 @@ function novoMovimento(contaPref){
     <label>Descrição</label><input type="text" id="nt" placeholder="ex.: Juros do depósito">
     <label>Valor (negativo para saídas)</label><input type="number" step="0.01" id="nv" placeholder="0,00">
     ${selGrupoCat("nn1","ncat","Por rever")}
-    <label>Subcategoria</label><input type="text" id="nsub" placeholder="opcional">
+    <label>Subcategoria</label><input type="text" id="nsub" list="nsubl" placeholder="opcional — escreva para criar">
+    <datalist id="nsubl"></datalist>
     <div class="bar"><button class="primary" id="nok">Lançar</button><button onclick="closeSheet()">Cancelar</button></div>`);
-  ligarGrupoCat("nn1","ncat");
+  ligarGrupoCat("nn1","ncat","nsubl");
   document.getElementById("nok").onclick=()=>{
     const v=parseFloat((document.getElementById("nv").value||"").replace(",","."));
     const desc=document.getElementById("nt").value.trim();
@@ -899,6 +920,10 @@ function viewDados(){
       <div class="hint">Exporte para passar os dados para outro dispositivo ou para guardar uma cópia. A importação substitui tudo o que está neste dispositivo.</div>
       <div class="bar"><button class="primary" id="exp">Exportar ficheiro</button><button id="impj">Importar cópia</button></div>
       <input type="file" id="fjson" accept=".json" style="display:none"></div>
+    <div class="card"><b>Subcategorias</b>
+      <div class="hint">${(()=>{const s=new Set(); S.movimentos.forEach(m=>{if(m.sub)s.add(m.sub)}); S.regras.forEach(r=>{if(r.s)s.add(r.s)}); const n=S.movimentos.filter(m=>m.sub).length; return s.size?`${s.size} subcategorias em uso, em ${n} movimentos.`:"Sem subcategorias em uso.";})()}</div>
+      <div class="bar"><button id="limparSub">Limpar subcategorias</button></div>
+      <div class="hint">Apaga a subcategoria de todos os movimentos e regras. As categorias e as classificações não são afetadas.</div></div>
     <div class="card"><b>Regras</b><div class="hint">${S.regras.length} regras de classificação. Crie novas a partir de qualquer movimento, em "Criar regra".</div>
       <div class="bar"><button id="reaplicar">Reaplicar a tudo</button></div></div>
     ${S.ui.erro?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent"><b>Último erro</b><div class="hint" style="color:inherit">${esc(S.ui.erro)}</div>
@@ -918,6 +943,14 @@ function viewDados(){
     const f=e.target.files[0]; if(!f) return; const r=new FileReader();
     r.onload=()=>{ try{ S=JSON.parse(r.result); migrate(); save(); render(); alert("Cópia importada."); }catch(err){ alert("Ficheiro inválido."); } };
     r.readAsText(f);
+  };
+  document.getElementById("limparSub").onclick=()=>{
+    const n=S.movimentos.filter(m=>m.sub).length, r=S.regras.filter(x=>x.s).length;
+    if(!n && !r){ alert("Já não há subcategorias."); return; }
+    if(!confirm("Apagar a subcategoria de "+n+" movimentos e "+r+" regras? As categorias mantêm-se.")) return;
+    S.movimentos.forEach(m=>m.sub="");
+    S.regras.forEach(x=>x.s="");
+    save(); render(); alert("Subcategorias apagadas.");
   };
   document.getElementById("reaplicar").onclick=()=>{ let n=0; for(const m of S.movimentos){ if(m.manual) continue; const r=aplicarRegras(m.desc,m.data); if(r){ m.cat=r.c; m.sub=r.s||""; n++; } else { m.cat="Por rever"; m.sub=""; } } save(); render(); alert(n+" movimentos classificados por regras."); };
   try{ localStorage.setItem("teste.ls","1"); const ok=localStorage.getItem("teste.ls")==="1"; localStorage.removeItem("teste.ls");
