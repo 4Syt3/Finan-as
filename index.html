@@ -113,7 +113,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 <div class="sheet" id="sheet"><div class="in" id="sheetIn"></div></div>
 
 <script>
-const SEED = {"cats":[{"nome":"Crédito habitação","tipo":"Despesa","n1":"Casa"},{"nome":"Condomínio","tipo":"Despesa","n1":"Casa"},{"nome":"Eletricidade e gás","tipo":"Despesa","n1":"Casa"},{"nome":"Água","tipo":"Despesa","n1":"Casa"},{"nome":"Telecomunicações","tipo":"Despesa","n1":"Casa"},{"nome":"Supermercado","tipo":"Despesa","n1":"Casa"},{"nome":"Manutenção","tipo":"Despesa","n1":"Casa"},{"nome":"Educação","tipo":"Despesa","n1":"Filhos"},{"nome":"Vestuário e atividades","tipo":"Despesa","n1":"Filhos"},{"nome":"Consultas","tipo":"Despesa","n1":"Saúde"},{"nome":"Farmácia","tipo":"Despesa","n1":"Saúde"},{"nome":"Dentista e ótica","tipo":"Despesa","n1":"Saúde"},{"nome":"Combustível e portagens","tipo":"Despesa","n1":"Transportes"},{"nome":"Outros transportes","tipo":"Despesa","n1":"Transportes"},{"nome":"Restauração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Lazer e viagens","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Casa e decoração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Compras","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Subscrições","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Desporto","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Cuidados pessoais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Animais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Seguros","tipo":"Despesa","n1":"Encargos"},{"nome":"Impostos e Estado","tipo":"Despesa","n1":"Encargos"},{"nome":"Quotas e associações","tipo":"Despesa","n1":"Encargos"},{"nome":"Comissões bancárias","tipo":"Despesa","n1":"Encargos"},{"nome":"Enviadas a particulares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Familiares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Levantamentos","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Ordenados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Juros","tipo":"Receita","n1":"Rendimentos"},{"nome":"Reembolsos não associados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros rendimentos","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros","tipo":"Despesa","n1":"Por classificar"},{"nome":"Poupança e investimentos","tipo":"Transferência interna","n1":"—"},{"nome":"Transferência interna","tipo":"Transferência interna","n1":"—"}],"rules":[],"accounts":[],"movimentos":[]};
+const SEED = {"cats":[{"nome":"Crédito habitação","tipo":"Despesa","n1":"Casa"},{"nome":"Condomínio","tipo":"Despesa","n1":"Casa"},{"nome":"Eletricidade e gás","tipo":"Despesa","n1":"Casa"},{"nome":"Água","tipo":"Despesa","n1":"Casa"},{"nome":"Telecomunicações","tipo":"Despesa","n1":"Casa"},{"nome":"Supermercado","tipo":"Despesa","n1":"Casa"},{"nome":"Manutenção","tipo":"Despesa","n1":"Casa"},{"nome":"Educação","tipo":"Despesa","n1":"Filhos"},{"nome":"Vestuário e atividades","tipo":"Despesa","n1":"Filhos"},{"nome":"Consultas","tipo":"Despesa","n1":"Saúde"},{"nome":"Farmácia","tipo":"Despesa","n1":"Saúde"},{"nome":"Dentista e ótica","tipo":"Despesa","n1":"Saúde"},{"nome":"Combustível e portagens","tipo":"Despesa","n1":"Transportes"},{"nome":"Outros transportes","tipo":"Despesa","n1":"Transportes"},{"nome":"Restauração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Lazer e viagens","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Casa e decoração","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Compras","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Vestuário","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Subscrições","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Desporto","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Cuidados pessoais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Animais","tipo":"Despesa","n1":"Lifestyle"},{"nome":"Seguros","tipo":"Despesa","n1":"Encargos"},{"nome":"Impostos e Estado","tipo":"Despesa","n1":"Encargos"},{"nome":"Quotas e associações","tipo":"Despesa","n1":"Encargos"},{"nome":"Comissões bancárias","tipo":"Despesa","n1":"Encargos"},{"nome":"Enviadas a particulares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Familiares","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Levantamentos","tipo":"Despesa","n1":"Transferências e numerário"},{"nome":"Ordenados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Juros","tipo":"Receita","n1":"Rendimentos"},{"nome":"Reembolsos não associados","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros rendimentos","tipo":"Receita","n1":"Rendimentos"},{"nome":"Outros","tipo":"Despesa","n1":"Por classificar"},{"nome":"Poupança e investimentos","tipo":"Transferência interna","n1":"—"},{"nome":"Transferência interna","tipo":"Transferência interna","n1":"—"}],"rules":[],"accounts":[],"movimentos":[]};
 const KEY = "financas.v1";
 const EUR = v => (v<0?"−":"") + Math.abs(v).toLocaleString("pt-PT",{minimumFractionDigits:2,maximumFractionDigits:2}) + " €";
 const EUR0 = v => (v<0?"−":"") + Math.abs(v).toLocaleString("pt-PT",{maximumFractionDigits:0}) + " €";
@@ -852,6 +852,40 @@ function viewContas(){
   document.querySelectorAll("[data-nm]").forEach(b=>b.onclick=()=>novoMovimento(b.dataset.nm));
 }
 
+function editCat(nome){
+  const c = nome ? S.categorias.find(x=>x.nome===nome) : null;
+  const usos = nome ? S.movimentos.filter(m=>m.cat===nome).length : 0;
+  const regras = nome ? S.regras.filter(r=>r.c===nome).length : 0;
+  openSheet(`<h2 style="margin:0 0 4px">${c?"Editar categoria":"Nova categoria"}</h2>
+    ${c?`<div class="hint">${usos} movimentos e ${regras} regras usam esta categoria.</div>`:""}
+    <label>Nome</label><input type="text" id="kn" value="${esc(c?c.nome:"")}" placeholder="ex.: Vestuário">
+    <label>Grupo</label><select id="kg">${grupos().map(g=>`<option ${c&&(c.n1||"")===g?"selected":""}>${esc(g)}</option>`).join("")}
+      <option value="__novo">— novo grupo —</option></select>
+    <input type="text" id="kgn" placeholder="nome do grupo novo" style="display:none;margin-top:6px">
+    <label>Tipo</label><select id="kt">${["Despesa","Receita","Transferência interna"].map(x=>`<option ${c&&c.tipo===x?"selected":""}>${esc(x)}</option>`).join("")}</select>
+    <div class="bar"><button class="primary" id="kok">Guardar</button>
+      ${c?`<button id="kdel">Apagar</button>`:""}<button onclick="closeSheet()">Cancelar</button></div>`);
+  const kg=document.getElementById("kg"), kgn=document.getElementById("kgn");
+  kg.onchange=()=>{ kgn.style.display = kg.value==="__novo" ? "block" : "none"; };
+  document.getElementById("kok").onclick=()=>{
+    const n=document.getElementById("kn").value.trim(); if(!n) return;
+    const g = kg.value==="__novo" ? (kgn.value.trim()||"Por classificar") : kg.value;
+    const tipo=document.getElementById("kt").value;
+    if(!c && S.categorias.some(x=>x.nome.toLowerCase()===n.toLowerCase())){ alert("Já existe uma categoria com esse nome."); return; }
+    if(c){ const antigo=c.nome; c.nome=n; c.n1=g; c.tipo=tipo;
+      if(antigo!==n){ S.movimentos.forEach(m=>{ if(m.cat===antigo) m.cat=n; }); S.regras.forEach(r=>{ if(r.c===antigo) r.c=n; }); }
+    } else S.categorias.push({nome:n,n1:g,tipo:tipo});
+    save(); closeSheet(); render();
+  };
+  const kd=document.getElementById("kdel"); if(kd) kd.onclick=()=>{
+    if(usos||regras){ if(!confirm(usos+" movimentos e "+regras+" regras usam esta categoria. Ao apagar, passam a «Por rever». Continuar?")) return; }
+    else if(!confirm("Apagar a categoria?")) return;
+    S.movimentos.forEach(m=>{ if(m.cat===nome){ m.cat="Por rever"; m.sub=""; } });
+    S.regras=S.regras.filter(r=>r.c!==nome);
+    S.categorias=S.categorias.filter(x=>x.nome!==nome);
+    save(); closeSheet(); render();
+  };
+}
 function editConta(i){
   const c = i==null?null:S.contas[i];
   openSheet(`<h2 style="margin:0 0 4px">${c?"Editar conta":"Nova conta"}</h2>
@@ -920,6 +954,9 @@ function viewDados(){
       <div class="hint">Exporte para passar os dados para outro dispositivo ou para guardar uma cópia. A importação substitui tudo o que está neste dispositivo.</div>
       <div class="bar"><button class="primary" id="exp">Exportar ficheiro</button><button id="impj">Importar cópia</button></div>
       <input type="file" id="fjson" accept=".json" style="display:none"></div>
+    <div class="card"><b>Categorias</b>
+      <div class="hint">${S.categorias.length} categorias em ${grupos().length} grupos.</div>
+      <div class="bar"><button id="verCats">Ver e editar</button><button class="primary" id="novaCat">Nova categoria</button></div></div>
     <div class="card"><b>Subcategorias</b>
       <div class="hint">${(()=>{const s=new Set(); S.movimentos.forEach(m=>{if(m.sub)s.add(m.sub)}); S.regras.forEach(r=>{if(r.s)s.add(r.s)}); const n=S.movimentos.filter(m=>m.sub).length; return s.size?`${s.size} subcategorias em uso, em ${n} movimentos.`:"Sem subcategorias em uso.";})()}</div>
       <div class="bar"><button id="limparSub">Limpar subcategorias</button></div>
@@ -943,6 +980,17 @@ function viewDados(){
     const f=e.target.files[0]; if(!f) return; const r=new FileReader();
     r.onload=()=>{ try{ S=JSON.parse(r.result); migrate(); save(); render(); alert("Cópia importada."); }catch(err){ alert("Ficheiro inválido."); } };
     r.readAsText(f);
+  };
+  document.getElementById("novaCat").onclick=()=>editCat(null);
+  document.getElementById("verCats").onclick=()=>{
+    openSheet(`<h2 style="margin:0 0 6px">Categorias</h2>
+      ${grupos().map(g=>`<div class="card"><b>${esc(g)}</b>
+        ${catsDe(g).map(c=>{ const n=S.movimentos.filter(m=>m.cat===c).length;
+          return `<div class="tap" data-cat-edit="${esc(c)}"><div class="row"><div>${esc(c)}</div><div class="sm mut">${n} mov. ›</div></div></div>`;}).join("")}
+      </div>`).join("")}
+      <div class="bar"><button class="primary" id="ncat2">Nova categoria</button><button onclick="closeSheet()">Fechar</button></div>`);
+    document.getElementById("ncat2").onclick=()=>editCat(null);
+    document.querySelectorAll("[data-cat-edit]").forEach(d=>d.onclick=()=>editCat(d.dataset.catEdit));
   };
   document.getElementById("limparSub").onclick=()=>{
     const n=S.movimentos.filter(m=>m.sub).length, r=S.regras.filter(x=>x.s).length;
