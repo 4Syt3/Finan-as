@@ -546,6 +546,23 @@ function listar(){
   document.getElementById("mvlist").innerHTML=html + (ms.length>600?`<div class="hint">A mostrar os 600 mais recentes.</div>`:"");
   document.querySelectorAll(".mv").forEach(d=>d.onclick=()=>detalhe(d.dataset.id));
 }
+function grupos(){ const g=[]; S.categorias.forEach(c=>{ const n=c.n1||"Por classificar"; if(!g.includes(n)) g.push(n); }); return g; }
+function catsDe(n1){ return S.categorias.filter(c=>(c.n1||"Por classificar")===n1).map(c=>c.nome); }
+function grupoDe(cat){ const c=S.categorias.find(x=>x.nome===cat); return c?(c.n1||"Por classificar"):"Por rever"; }
+function selGrupoCat(idG,idC,catAtual){
+  const g=grupoDe(catAtual);
+  return `<label>Grupo</label>
+    <select id="${idG}"><option value="Por rever" ${catAtual==="Por rever"?"selected":""}>— Por rever —</option>
+      ${grupos().map(x=>`<option ${x===g?"selected":""}>${esc(x)}</option>`).join("")}</select>
+    <label>Categoria</label>
+    <select id="${idC}">${(catAtual==="Por rever"?["Por rever"]:catsDe(g)).map(x=>`<option ${x===catAtual?"selected":""}>${esc(x)}</option>`).join("")}</select>`;
+}
+function ligarGrupoCat(idG,idC){
+  const g=document.getElementById(idG), c=document.getElementById(idC);
+  if(!g||!c) return;
+  g.onchange=()=>{ const lista = g.value==="Por rever" ? ["Por rever"] : catsDe(g.value);
+    c.innerHTML=lista.map(x=>`<option>${esc(x)}</option>`).join(""); };
+}
 function tagsExistentes(){ const s=new Set(); S.movimentos.forEach(m=>{ if(m.tag) s.add(m.tag); }); S.tags.forEach(t=>s.add(t)); return [...s].sort(); }
 
 /* ---------- detalhe do movimento ---------- */
@@ -562,8 +579,7 @@ function detalhe(id){
       <div style="font-weight:600;margin-top:2px">${esc(m.desc)}</div></div>
       <div class="big ${m.valor<0?"neg":"pos"}">${EUR(m.valor)}</div></div>
 
-    <label>Categoria</label>
-    <select id="dcat">${["Por rever",...cats].map(x=>`<option ${x===m.cat?"selected":""}>${esc(x)}</option>`).join("")}</select>
+    ${selGrupoCat("dn1","dcat",m.cat)}
     <label>Subcategoria</label>
     <input type="text" id="dsub" value="${esc(m.sub||"")}" placeholder="opcional">
     <label>Tag</label>
@@ -595,6 +611,7 @@ function detalhe(id){
     </div>
     <div class="hint">A categoria que escolher aqui prevalece sempre sobre as regras.</div>
   `);
+  ligarGrupoCat("dn1","dcat");
   document.getElementById("dsave").onclick=()=>{
     const catAnt=m.cat;
     m.cat=document.getElementById("dcat").value;
@@ -682,9 +699,10 @@ function criarRegra(m){
   openSheet(`<h2 style="margin:0 0 4px">Criar regra</h2>
     <div class="hint">Todos os movimentos, passados e futuros, cuja descrição contenha este texto passam a ter esta categoria.</div>
     <label>Texto</label><input type="text" id="rp" value="${esc(base)}">
-    <label>Categoria</label><select id="rc">${S.categorias.map(c=>`<option ${c.nome===m.cat?"selected":""}>${esc(c.nome)}</option>`).join("")}</select>
+    ${selGrupoCat("rn1","rc",m.cat)}
     <label>Subcategoria</label><input type="text" id="rs" value="${esc(m.sub||"")}">
     <div class="bar"><button class="primary" id="rok">Criar e aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  ligarGrupoCat("rn1","rc");
   document.getElementById("rok").onclick=()=>{
     const p=document.getElementById("rp").value.trim(); if(!p) return;
     S.regras.unshift({id:uid("r"),p,c:document.getElementById("rc").value,s:document.getElementById("rs").value.trim(),desde:null});
@@ -850,9 +868,10 @@ function novoMovimento(contaPref){
     <label>Conta</label><select id="nc">${S.contas.map(c=>`<option ${c.nome===contaPref?"selected":""}>${esc(c.nome)}</option>`).join("")}</select>
     <label>Descrição</label><input type="text" id="nt" placeholder="ex.: Juros do depósito">
     <label>Valor (negativo para saídas)</label><input type="number" step="0.01" id="nv" placeholder="0,00">
-    <label>Categoria</label><select id="ncat"><option>Por rever</option>${S.categorias.map(c=>`<option ${c.nome==="Rendimentos"?"":""}>${esc(c.nome)}</option>`).join("")}</select>
+    ${selGrupoCat("nn1","ncat","Por rever")}
     <label>Subcategoria</label><input type="text" id="nsub" placeholder="opcional">
     <div class="bar"><button class="primary" id="nok">Lançar</button><button onclick="closeSheet()">Cancelar</button></div>`);
+  ligarGrupoCat("nn1","ncat");
   document.getElementById("nok").onclick=()=>{
     const v=parseFloat((document.getElementById("nv").value||"").replace(",","."));
     const desc=document.getElementById("nt").value.trim();
