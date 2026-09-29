@@ -173,6 +173,7 @@ function load(){
     movimentos: SEED.movimentos.map(m=>({...m, reemb: m.reembolsoDe?[{mov:m.reembolsoDe,valor:m.valor}]:[]})),
     envelopes: [],
     ajustes: [],
+    dupOk: {},
     tags: [],
     ui: {tab:"geral", per:"mes", de:null, ate:null},
     novo:true,
@@ -181,7 +182,7 @@ function load(){
   };
   save();
 }
-function migrate(){ if(!S.v2){ S.v2=true; S.ui=S.ui||{}; S.ui.per="mes"; } S.cfg=S.cfg||{desde:"2026-01-01"}; if(S.cfg.autoDrive===undefined) S.cfg.autoDrive=false; if(!S.cfg.pasta) S.cfg.pasta="Financas App"; S.drive=S.drive||{ultima:null,ficheiro:null,id:null}; S.ajustes=S.ajustes||[];
+function migrate(){ S.dupOk=S.dupOk||{}; if(!S.v2){ S.v2=true; S.ui=S.ui||{}; S.ui.per="mes"; } S.cfg=S.cfg||{desde:"2026-01-01"}; if(S.cfg.autoDrive===undefined) S.cfg.autoDrive=false; if(!S.cfg.pasta) S.cfg.pasta="Financas App"; S.drive=S.drive||{ultima:null,ficheiro:null,id:null}; S.ajustes=S.ajustes||[];
   (S.movimentos||[]).forEach(m=>{ if(!m.reemb) m.reemb = m.reembolsoDe?[{mov:m.reembolsoDe,valor:m.valor}]:[]; }); S.envelopes=S.envelopes||[]; S.tags=S.tags||[]; S.ui=S.ui||{tab:"geral",per:"ano"}; }
 function save(){ try{ S.dirty=true; S.novo=false; S.alterado=new Date().toISOString();
   const txt=JSON.stringify(S); localStorage.setItem(KEY, txt); idbGuardar(txt); agendarDrive(); }catch(e){ alert("Não foi possível guardar neste dispositivo. Exporte uma cópia em Dados."); } }
@@ -846,13 +847,14 @@ function apagarMovimento(id){
   return true;
 }
 function grupoDup(m){ return [m.conta,m.desc.toLowerCase().trim(),m.valor.toFixed(2)].join("|"); }
-function duplicados(){
-  const mapa={};
-  S.movimentos.forEach(m=>{ (mapa[grupoDup(m)]=mapa[grupoDup(m)]||[]).push(m); });
+function bancoDe(nome){ const c=contaDe(nome); return c?(c.banco||c.nome):nome; }
+function blocosDup(){
+  const mapa={}, idx=new Map();
+  S.movimentos.forEach((m,i)=>{ idx.set(m.id,i); (mapa[grupoDup(m)]=mapa[grupoDup(m)]||[]).push(m); });
   const out=[];
   Object.values(mapa).forEach(l=>{
     if(l.length<2) return;
-    l.sort((a,b)=>a.data<b.data?-1:1);
+    l.sort((a,b)=> a.data!==b.data ? (a.data<b.data?-1:1) : (idx.get(a.id)-idx.get(b.id)) );
     let bloco=[l[0]];
     for(let i=1;i<l.length;i++){
       if(Math.abs(dias(bloco[bloco.length-1].data,l[i].data))<=5) bloco.push(l[i]);
@@ -860,25 +862,53 @@ function duplicados(){
     }
     if(bloco.length>1) out.push(bloco);
   });
-  return out.sort((a,b)=>Math.abs(b[0].valor)-Math.abs(a[0].valor));
+  return out;
+}
+function limparExcedentes(){
+  S.dupOk=S.dupOk||{};
+  let apagados=0;
+  const idx=new Map(S.movimentos.map((m,i)=>[m.id,i]));
+  blocosDup().forEach(g=>{
+    const ac=S.dupOk[grupoDup(g[0])];
+    if(!ac || g.length<=ac) return;
+    const porEntrada=g.slice().sort((a,b)=>idx.get(a.id)-idx.get(b.id));
+    for(let i=ac;i<porEntrada.length;i++){ apagarMovimento(porEntrada[i].id); apagados++; }
+  });
+  return apagados;
+}
+function duplicados(){
+  S.dupOk=S.dupOk||{};
+  return blocosDup()
+    .filter(g=>{ const ac=S.dupOk[grupoDup(g[0])]; return !(ac && g.length<=ac); })
+    .sort((a,b)=>{
+      const ba=bancoDe(a[0].conta), bb=bancoDe(b[0].conta);
+      if(ba!==bb) return ba.localeCompare(bb,"pt");
+      return a[0].data<b[0].data?-1:a[0].data>b[0].data?1:0;
+    });
 }
 function verDuplicados(){
+  const auto=limparExcedentes(); if(auto) save();
   const gs=duplicados();
   const total=gs.reduce((t,g)=>t+(g.length-1),0);
   const valor=gs.reduce((t,g)=>t+g[0].valor*(g.length-1),0);
   openSheet(`<h2 style="margin:0 0 4px">Possíveis duplicados</h2>
-    <div class="hint">${gs.length?`${gs.length} grupos, ${total} movimentos a mais, ${EUR(valor)} em jogo. Mesma conta, mesma descrição e mesmo valor, com até 5 dias de diferença. Pode haver casos legítimos, como duas compras iguais no mesmo dia.`:"Não encontrei duplicados."}</div>
+    ${auto?`<div class="hint" style="color:var(--ink)">${auto} movimentos excedentes removidos automaticamente, por já existirem grupos marcados como legítimos.</div>`:""}
+    <div class="hint">${gs.length?`${gs.length} grupos, ${total} movimentos a mais, ${EUR(valor)} em jogo. Mesma conta, mesma descrição e mesmo valor, com até 5 dias de diferença. Ordenados por banco e data.<br>"Manter" marca o grupo como legítimo: deixa de aparecer, e no futuro qualquer cópia a mais é removida sozinha.`:"Não encontrei duplicados."}</div>
     ${gs.slice(0,40).map((g,gi)=>`<div class="card"><div class="row"><div><b>${esc(g[0].desc.slice(0,40))}</b>
-      <div class="sm mut">${esc(g[0].conta)} · ${g.length} vezes</div></div><div class="v ${g[0].valor<0?"neg":"pos"}">${EUR(g[0].valor)}</div></div>
-      ${g.map((m,i)=>`<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
-        <div class="sm">${fdate(m.data)}${i===0?' <span class="badge">manter</span>':""}</div>
-        ${i>0?`<button data-del-mv="${m.id}" style="height:30px;line-height:28px;font-size:13px;padding:0 10px">Apagar</button>`:'<span class="sm mut">—</span>'}</div>`).join("")}
-      ${g.length>2?`<div class="bar"><button data-del-g="${gi}">Apagar os ${g.length-1} extras</button></div>`:""}</div>`).join("")}
+      <div class="sm mut">${esc(bancoDe(g[0].conta))} · ${esc(g[0].conta)} · ${g.length} vezes</div></div>
+      <div class="v ${g[0].valor<0?"neg":"pos"}">${EUR(g[0].valor)}</div></div>
+      ${g.map(m=>`<div class="row" style="padding:8px 0;border-top:1px solid var(--line)">
+        <div class="sm">${fdate(m.data)}</div>
+        <div style="display:flex;gap:6px">
+          <button data-keep-g="${gi}" style="height:30px;line-height:28px;font-size:13px;padding:0 10px">Manter</button>
+          <button data-del-mv="${m.id}" style="height:30px;line-height:28px;font-size:13px;padding:0 10px">Eliminar</button>
+        </div></div>`).join("")}</div>`).join("")}
     ${gs.length?`<div class="bar"><button class="primary" id="delTodos">Apagar todos os extras (${total})</button><button onclick="closeSheet()">Fechar</button></div>`
       :`<div class="bar"><button onclick="closeSheet()">Fechar</button></div>`}`);
   document.querySelectorAll("[data-del-mv]").forEach(b=>b.onclick=()=>{ apagarMovimento(b.dataset.delMv); save(); verDuplicados(); render(); });
-  document.querySelectorAll("[data-del-g]").forEach(b=>b.onclick=()=>{
-    const g=gs[+b.dataset.delG]; g.slice(1).forEach(m=>apagarMovimento(m.id)); save(); verDuplicados(); render(); });
+  document.querySelectorAll("[data-keep-g]").forEach(b=>b.onclick=()=>{
+    const g=gs[+b.dataset.keepG]; S.dupOk=S.dupOk||{}; S.dupOk[grupoDup(g[0])]=g.length;
+    save(); verDuplicados(); render(); });
   const dt=document.getElementById("delTodos"); if(dt) dt.onclick=()=>{
     if(!confirm("Apagar "+total+" movimentos duplicados, mantendo o primeiro de cada grupo?")) return;
     gs.forEach(g=>g.slice(1).forEach(m=>apagarMovimento(m.id))); save(); closeSheet(); render();
@@ -1294,8 +1324,10 @@ function importarFicheiros(files){
   out.textContent="A ler "+files.length+" ficheiro(s)…";
   let novos=0, dup=0, fora=0, erros=[], lidos=0;
   const done=()=>{
+    const autoDup=limparExcedentes();
     S.ui.impMsg = `Ficheiros lidos: ${lidos}. Movimentos novos: ${novos}. Repetidos ignorados: ${dup}.`
       + (fora?` Anteriores à data de corte: ${fora}.`:"")
+      + (autoDup?` Removidos automaticamente ${autoDup} duplicados de grupos já validados.`:"")
       + (erros.length?" Problemas: "+erros.join("; "):"");
     save(); render();
   };
