@@ -328,6 +328,8 @@ function periodo(){
   if(p==="3m"){ const d=new Date(y,hoje.getMonth()-2,1); return [iso(d), iso(new Date(y,hoje.getMonth()+1,0))]; }
   if(p==="ano"){ return [y+"-01-01", y+"-12-31"]; }
   if(p==="tudo"){ return ["0000-01-01","9999-12-31"]; }
+  if(p==="mesEsp"){ const yy=S.ui.ano||y, mm=(S.ui.mes||1)-1;
+    return [iso(new Date(yy,mm,1)), iso(new Date(yy,mm+1,0))]; }
   return [S.ui.de||y+"-01-01", S.ui.ate||y+"-12-31"];
 }
 function noPeriodo(m){ const [a,b]=periodo(); return m.data>=a && m.data<=b; }
@@ -364,28 +366,35 @@ function saldoConta(c){
 const TIPOS_POUPANCA=["Conta poupança","Depósito a prazo","PPR","Investimentos"];
 function contaPoupanca(nome){ const c=contaDe(nome); if(!c) return false;
   return (c.poupanca===undefined) ? TIPOS_POUPANCA.includes(c.tipo) : !!c.poupanca; }
+function simetricoFora(m){ return S.movimentos.some(x=>x.id!==m.id && !contaPoupanca(x.conta)
+    && Math.abs(x.valor+m.valor)<0.015 && Math.abs(dias(x.data,m.data))<=5); }
+function movPoupanca(m){
+  if(contaPoupanca(m.conta)){
+    const tb=tipoBase(m);
+    if(tb==="Receita") return {tipo:"juros", valor:m.valor};
+    if(tb==="Despesa") return {tipo:"saida", valor:-m.valor};
+    const p=m.par?byId(m.par):null;
+    if(p){ if(contaPoupanca(p.conta)) return null; }
+    else if(!simetricoFora(m)) return {tipo:"interno", valor:m.valor};
+    return m.valor>0 ? {tipo:"entrada", valor:m.valor} : {tipo:"saida", valor:-m.valor};
+  }
+  if(m.cat==="Poupança e investimentos"){
+    const p=m.par?byId(m.par):null;
+    if(p && contaPoupanca(p.conta)) return null;
+    return m.valor<0 ? {tipo:"entrada", valor:-m.valor} : {tipo:"saida", valor:m.valor};
+  }
+  return null;
+}
 function esforcoPoupanca(){
   const [a,b]=periodo();
   let paraProdutos=0, retirado=0, jurosProd=0, porLigar=0;
-  const simetricoFora=(m)=>S.movimentos.some(x=>x.id!==m.id && !contaPoupanca(x.conta)
-      && Math.abs(x.valor+m.valor)<0.015 && Math.abs(dias(x.data,m.data))<=5);
   for(const m of S.movimentos){
     if(m.data<a || m.data>b) continue;
-    if(contaPoupanca(m.conta)){
-      const tb=tipoBase(m);
-      if(tb==="Receita"){ jurosProd+=m.valor; continue; }
-      if(tb==="Despesa"){ retirado+=-m.valor; continue; }
-      const p=m.par?byId(m.par):null;
-      if(p){ if(contaPoupanca(p.conta)) continue; }
-      else if(!simetricoFora(m)){ porLigar++; continue; }
-      if(m.valor>0) paraProdutos+=m.valor; else retirado+=-m.valor;
-      continue;
-    }
-    if(m.cat==="Poupança e investimentos"){
-      const p=m.par?byId(m.par):null;
-      if(p && contaPoupanca(p.conta)) continue;
-      if(m.valor<0) paraProdutos+=-m.valor; else retirado+=m.valor;
-    }
+    const r=movPoupanca(m); if(!r) continue;
+    if(r.tipo==="entrada") paraProdutos+=r.valor;
+    else if(r.tipo==="saida") retirado+=r.valor;
+    else if(r.tipo==="juros") jurosProd+=r.valor;
+    else porLigar++;
   }
   return {paraProdutos, retirado, liquido:paraProdutos-retirado, jurosProd, porLigar};
 }
@@ -522,10 +531,11 @@ function viewGeral(){
         <div class="row"><div>Receitas − despesas</div><div class="v ${t.saldo<0?"neg":"pos"}">${EUR(t.saldo)}</div></div>
         <div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><div>Aplicado em produtos de poupança</div><div class="v">${EUR(e.paraProdutos)}</div></div>
         ${e.retirado?`<div class="row"><div>Retirado desses produtos</div><div class="v neg">${EUR(-e.retirado)}</div></div>`:""}
-        <div class="row"><div><b>Esforço líquido de poupança</b></div><div class="v" style="font-size:17px;font-weight:650">${EUR(e.liquido)}</div></div>
+        <div class="tap" id="verPoup" style="border:0;padding:6px 0"><div class="row"><div><b>Esforço líquido de poupança</b> <span class="sm mut">ver movimentos ›</span></div>
+          <div class="v" style="font-size:17px;font-weight:650">${EUR(e.liquido)}</div></div></div>
         ${tx!==null?`<div class="row"><div class="sm mut">Sobre as receitas do período</div><div class="sm mut">${(tx*100).toFixed(1)}%</div></div>`:""}
         ${e.jurosProd?`<div class="row"><div class="sm mut">Juros recebidos nesses produtos</div><div class="sm pos">${EUR(e.jurosProd)}</div></div>`:""}
-        ${e.porLigar?`<div class="row"><div class="sm mut">Movimentos internos sem contrapartida conhecida</div><div class="sm mut">${e.porLigar}</div></div>`:""}
+        ${e.porLigar?`<div class="tap" id="verPoupInt" style="border:0;padding:6px 0"><div class="row"><div class="sm mut">Movimentos internos sem contrapartida conhecida ›</div><div class="sm mut">${e.porLigar}</div></div></div>`:""}
         <div class="hint">Conta o que entrou nas contas marcadas como poupança, menos o que saiu delas, e ainda as saídas para produtos que não estão registados como conta. Marque ou desmarque cada conta no separador Contas.</div>
       </div>`;})()}
 
@@ -537,6 +547,8 @@ function viewGeral(){
   wirePeriodo();
   const gr=document.getElementById("goRever"); if(gr) gr.onclick=()=>{ S.ui.fCat="Por rever"; setTab("movs"); };
   const gi=document.getElementById("goImp"); if(gi) gi.onclick=()=>{ S.ui.fEstado="imputar"; setTab("movs"); };
+  const vp=document.getElementById("verPoup"); if(vp) vp.onclick=()=>{ S.ui.fEstado="poupanca"; S.ui.fCat="(todas)"; S.ui.fGrupo="(todos)"; S.ui.fContas=[]; setTab("movs"); };
+  const vpi=document.getElementById("verPoupInt"); if(vpi) vpi.onclick=()=>{ S.ui.fEstado="poupinterno"; S.ui.fCat="(todas)"; S.ui.fGrupo="(todos)"; S.ui.fContas=[]; setTab("movs"); };
   document.querySelectorAll("[data-conta]").forEach(d=>d.onclick=()=>{
     S.ui.fContas=[d.dataset.conta]; S.ui.fCat="(todas)"; S.ui.fGrupo="(todos)"; S.ui.fEstado=""; setTab("movs"); });
   document.querySelectorAll("[data-n1]").forEach(d=>d.onclick=()=>{ S.ui.exp1 = (S.ui.exp1===d.dataset.n1)?null:d.dataset.n1; S.ui.exp2=null; save(); render(); });
@@ -545,8 +557,10 @@ function viewGeral(){
 
 function viewMovs(){
   const f=S.ui;
-  const per={mes:"Este mês",ano:"Este ano",tudo:"Tudo",cust:"Datas"}[f.per]||"Datas";
-  const cat = (f.fCat&&f.fCat!=="(todas)") ? f.fCat : ((f.fGrupo&&f.fGrupo!=="(todos)") ? f.fGrupo : (f.fEstado==="rever"?"Por rever":(f.fEstado==="imputar"?"Por imputar":"Categorias")));
+  const per = f.per==="mesEsp" ? (MESES[(f.mes||1)-1]+" "+(f.ano||new Date().getFullYear()))
+    : ({mes:"Este mês",ano:"Este ano",tudo:"Tudo",cust:"Datas"}[f.per]||"Datas");
+  const cat = (f.fCat&&f.fCat!=="(todas)") ? f.fCat : ((f.fGrupo&&f.fGrupo!=="(todos)") ? f.fGrupo
+    : ({rever:"Por rever",imputar:"Por imputar",poupanca:"Poupança",poupinterno:"Poupança interna"}[f.fEstado]||"Categorias"));
   const contasSel=f.fContas||[];
   const contas = contasSel.length ? (contasSel.length===1?contasSel[0]:contasSel.length+" contas") : "Contas";
   const temVal = (f.fSinal&&f.fSinal!=="todos") || f.fMin || f.fMax;
@@ -577,9 +591,18 @@ function viewMovs(){
     const [a,b]=periodo();
     openSheet(`<h2 style="margin:0 0 6px">Período</h2>
       <div class="bar">${[["tudo","Tudo"],["ano","Este ano"],["mes","Este mês"]].map(([k,l])=>`<button data-p="${k}" class="${f.per===k?"primary":""}">${l}</button>`).join("")}</div>
-      <label>De</label><input type="date" id="pd" value="${a}">
-      <label>Até</label><input type="date" id="pa" value="${b}">
+      <label>Mês</label>
+      <div style="display:flex;gap:8px">
+        <select id="pm">${MESES.map((x,k)=>`<option value="${k+1}" ${(f.mes||new Date().getMonth()+1)===k+1?"selected":""}>${x}</option>`).join("")}</select>
+        <select id="py">${(()=>{const anos=[];const hoje=new Date().getFullYear();for(let y2=hoje+1;y2>=hoje-6;y2--)anos.push(y2);
+          return anos.map(y2=>`<option ${(f.ano||hoje)===y2?"selected":""}>${y2}</option>`).join("");})()}</select>
+      </div>
+      <div class="bar"><button class="primary" id="pmok">Aplicar mês</button></div>
+      <label>Intervalo de datas</label><input type="date" id="pd" value="${a}">
+      <input type="date" id="pa" value="${b}" style="margin-top:8px">
       <div class="bar"><button class="primary" id="pok">Aplicar datas</button><button onclick="closeSheet()">Fechar</button></div>`);
+    document.getElementById("pmok").onclick=()=>{ S.ui.per="mesEsp"; S.ui.mes=+document.getElementById("pm").value;
+      S.ui.ano=+document.getElementById("py").value; save(); closeSheet(); render(); };
     document.querySelectorAll("[data-p]").forEach(x=>x.onclick=()=>{ S.ui.per=x.dataset.p; save(); closeSheet(); render(); });
     document.getElementById("pok").onclick=()=>{ S.ui.per="cust"; S.ui.de=document.getElementById("pd").value; S.ui.ate=document.getElementById("pa").value; save(); closeSheet(); render(); };
   };
@@ -598,7 +621,9 @@ function viewMovs(){
       <label>Estado</label>
       <select id="se"><option value="">(todos)</option>
         <option value="rever" ${f.fEstado==="rever"?"selected":""}>Por rever</option>
-        <option value="imputar" ${f.fEstado==="imputar"?"selected":""}>Por imputar a envelopes</option></select>
+        <option value="imputar" ${f.fEstado==="imputar"?"selected":""}>Por imputar a envelopes</option>
+        <option value="poupanca" ${f.fEstado==="poupanca"?"selected":""}>Movimentos de poupança</option>
+        <option value="poupinterno" ${f.fEstado==="poupinterno"?"selected":""}>Poupança — internos por esclarecer</option></select>
       <div class="bar"><button class="primary" id="cok">Aplicar</button>
         <button id="climpar">Limpar</button><button onclick="closeSheet()">Fechar</button></div>`);
     const sg=document.getElementById("sg"), sc=document.getElementById("sc"), ss=document.getElementById("ss");
@@ -658,6 +683,8 @@ function filtrados(){
     if(min!=null && !isNaN(min) && abs<min) return false;
     if(max!=null && !isNaN(max) && abs>max) return false;
     if(f.fEstado==="rever" && m.cat!=="Por rever") return false;
+    if(f.fEstado==="poupanca"){ const r=movPoupanca(m); if(!r||(r.tipo!=="entrada"&&r.tipo!=="saida")) return false; }
+    if(f.fEstado==="poupinterno"){ const r=movPoupanca(m); if(!r||r.tipo!=="interno") return false; }
     if(f.fEstado==="imputar"){ const c=contaDe(m.conta); if(!c||!c.envelopes) return false;
       const s=(m.env||[]).reduce((t,a)=>t+a.valor,0); if(Math.abs(s-m.valor)<=0.005) return false; }
     return true;
