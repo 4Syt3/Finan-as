@@ -361,6 +361,34 @@ function saldoConta(c){
   for(const m of S.movimentos) if(m.conta===c.nome && m.data>desde) s+=m.valor;
   return s;
 }
+const TIPOS_POUPANCA=["Conta poupança","Depósito a prazo","PPR","Investimentos"];
+function contaPoupanca(nome){ const c=contaDe(nome); if(!c) return false;
+  return (c.poupanca===undefined) ? TIPOS_POUPANCA.includes(c.tipo) : !!c.poupanca; }
+function esforcoPoupanca(){
+  const [a,b]=periodo();
+  let paraProdutos=0, retirado=0, jurosProd=0, porLigar=0;
+  const simetricoFora=(m)=>S.movimentos.some(x=>x.id!==m.id && !contaPoupanca(x.conta)
+      && Math.abs(x.valor+m.valor)<0.015 && Math.abs(dias(x.data,m.data))<=5);
+  for(const m of S.movimentos){
+    if(m.data<a || m.data>b) continue;
+    if(contaPoupanca(m.conta)){
+      const tb=tipoBase(m);
+      if(tb==="Receita"){ jurosProd+=m.valor; continue; }
+      if(tb==="Despesa"){ retirado+=-m.valor; continue; }
+      const p=m.par?byId(m.par):null;
+      if(p){ if(contaPoupanca(p.conta)) continue; }
+      else if(!simetricoFora(m)){ porLigar++; continue; }
+      if(m.valor>0) paraProdutos+=m.valor; else retirado+=-m.valor;
+      continue;
+    }
+    if(m.cat==="Poupança e investimentos"){
+      const p=m.par?byId(m.par):null;
+      if(p && contaPoupanca(p.conta)) continue;
+      if(m.valor<0) paraProdutos+=-m.valor; else retirado+=m.valor;
+    }
+  }
+  return {paraProdutos, retirado, liquido:paraProdutos-retirado, jurosProd, porLigar};
+}
 function saldoContaAte(c,data){
   if(!c || c.saldoInicial==null) return null;
   const desde=c.saldoData||"0000-01-01";
@@ -486,6 +514,20 @@ function viewGeral(){
 
     <h2 style="margin-left:0">Saldos por conta</h2><div class="card">${contasHtml}</div>
     <h2 style="margin-left:0">Envelopes</h2><div class="card">${envHtml}</div>
+
+    ${(()=>{ const e=esforcoPoupanca();
+      if(!e.paraProdutos && !e.retirado && !e.jurosProd) return "";
+      const tx = t.rec>0 ? (e.liquido/t.rec) : null;
+      return `<h2 style="margin-left:0">Poupança no período</h2><div class="card">
+        <div class="row"><div>Receitas − despesas</div><div class="v ${t.saldo<0?"neg":"pos"}">${EUR(t.saldo)}</div></div>
+        <div class="row" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><div>Aplicado em produtos de poupança</div><div class="v">${EUR(e.paraProdutos)}</div></div>
+        ${e.retirado?`<div class="row"><div>Retirado desses produtos</div><div class="v neg">${EUR(-e.retirado)}</div></div>`:""}
+        <div class="row"><div><b>Esforço líquido de poupança</b></div><div class="v" style="font-size:17px;font-weight:650">${EUR(e.liquido)}</div></div>
+        ${tx!==null?`<div class="row"><div class="sm mut">Sobre as receitas do período</div><div class="sm mut">${(tx*100).toFixed(1)}%</div></div>`:""}
+        ${e.jurosProd?`<div class="row"><div class="sm mut">Juros recebidos nesses produtos</div><div class="sm pos">${EUR(e.jurosProd)}</div></div>`:""}
+        ${e.porLigar?`<div class="row"><div class="sm mut">Movimentos internos sem contrapartida conhecida</div><div class="sm mut">${e.porLigar}</div></div>`:""}
+        <div class="hint">Conta o que entrou nas contas marcadas como poupança, menos o que saiu delas, e ainda as saídas para produtos que não estão registados como conta. Marque ou desmarque cada conta no separador Contas.</div>
+      </div>`;})()}
 
     ${(pend||imp)?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent">
       ${pend?`<div class="tap" id="goRever" style="border:0">${pend} movimentos por rever →</div>`:""}
@@ -1131,9 +1173,11 @@ function viewContas(){
       <label>${c.tipo==="Cartão de crédito"?"Valor em dívida nessa data (negativo)":"Saldo nessa data"}</label>
       <input type="number" step="0.01" data-si="${i}" value="${c.saldoInicial==null?"":c.saldoInicial}" placeholder="não definido">
       ${c.tipo==="Cartão de crédito"?'<div class="hint">Num cartão de crédito o saldo é o que deve: as compras somam em dívida e os pagamentos por débito direto abatem. Indique o valor em dívida numa data, com sinal negativo.</div>':""}
-      <div class="bar"><button data-env="${i}" class="${c.envelopes?"primary":""}">${c.envelopes?"✓ ":""}Conta com envelopes</button>
+      <div class="bar"><button data-pou="${i}" class="${contaPoupanca(c.nome)?"primary":""}">${contaPoupanca(c.nome)?"✓ ":""}Conta de poupança</button>
+        <button data-env="${i}" class="${c.envelopes?"primary":""}">${c.envelopes?"✓ ":""}Conta com envelopes</button>
         <button data-ec="${i}">Editar</button><button data-nm="${esc(c.nome)}">Lançar movimento</button></div>
-      <div class="hint">${c.envelopes?"Nesta conta a app pede o envelope em cada movimento.":"Nesta conta não são pedidos envelopes."}</div>
+      <div class="hint">${contaPoupanca(c.nome)?"O que entra nesta conta conta como poupança do período; o que sai desconta.":"Movimentos nesta conta não contam como esforço de poupança."}
+        ${c.envelopes?" Nesta conta a app pede o envelope em cada movimento.":""}</div>
     </div>`;}).join("")}
     <div class="bar"><button class="primary" id="novaConta">Nova conta</button></div>
     <div class="hint">O saldo de cada conta é calculado a partir do saldo que indicar, somando os movimentos posteriores a essa data.</div>
@@ -1143,6 +1187,7 @@ function viewContas(){
   document.querySelectorAll("[data-sd]").forEach(el=>el.onchange=()=>{ S.contas[+el.dataset.sd].saldoData=el.value; save(); render(); });
   document.querySelectorAll("[data-si]").forEach(el=>el.onchange=()=>{ const v=el.value.trim(); S.contas[+el.dataset.si].saldoInicial = v===""?null:parseFloat(v.replace(",","."))||0; save(); render(); });
   document.querySelectorAll("[data-env]").forEach(b=>b.onclick=()=>{ const c=S.contas[+b.dataset.env]; c.envelopes=!c.envelopes; save(); render(); });
+  document.querySelectorAll("[data-pou]").forEach(b=>b.onclick=()=>{ const c=S.contas[+b.dataset.pou]; c.poupanca=!contaPoupanca(c.nome); save(); render(); });
   document.querySelectorAll("[data-nm]").forEach(b=>b.onclick=()=>novoMovimento(b.dataset.nm));
 }
 
