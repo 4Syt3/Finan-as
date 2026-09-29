@@ -936,23 +936,27 @@ function ligarTransferencia(m){
 function escolherDespesa(m){
   const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
   const jaUsadas=new Set((m.reemb||[]).map(r=>r.mov));
-  const cand=S.movimentos.filter(e=> e.valor<0 && !jaUsadas.has(e.id) && e.data<=m.data && dias(e.data,m.data)<=90
-      && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01)
-    .sort((a,b)=> dias(a.data,m.data)-dias(b.data,m.data)).slice(0,60);
+  const base=S.movimentos.filter(e=> e.valor<0 && !jaUsadas.has(e.id) && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
+  const dentro=e=>{ const d=dias(e.data,m.data); return d>=-15 && d<=90; };
+  const cand=base.filter(dentro).sort((a,b)=> Math.abs(dias(a.data,m.data))-Math.abs(dias(b.data,m.data))).slice(0,60);
   openSheet(`<h2 style="margin:0 0 4px">Que despesa está a ser reembolsada?</h2>
-    <div class="hint">Entrada de ${EUR(m.valor)} em ${fdate(m.data)}. Por atribuir: ${EUR(sobra)}. Pode repartir por várias despesas e por valores parciais.</div>
+    <div class="hint">Entrada de ${EUR(m.valor)} em ${fdate(m.data)}. Por atribuir: ${EUR(sobra)}. Pode repartir por várias despesas e por valores parciais.
+    Mostra despesas dos 90 dias anteriores e dos 15 dias seguintes, para o caso de a despesa só ser lançada depois. Se procurar por nome, procura em todo o histórico.</div>
     <label>Procurar</label><input type="text" id="cq" placeholder="nome da despesa…">
     <div class="list" id="clist"></div>
     <div class="bar"><button onclick="closeSheet()">Fechar</button></div>`);
   const draw=()=>{
     const q=(document.getElementById("cq").value||"").toLowerCase();
-    const ms=cand.filter(e=>!q||e.desc.toLowerCase().includes(q)).slice(0,40);
+    const fonte = q ? base.filter(e=>e.desc.toLowerCase().includes(q))
+        .sort((a,b)=> Math.abs(dias(a.data,m.data))-Math.abs(dias(b.data,m.data))) : cand;
+    const ms=fonte.slice(0,40);
     document.getElementById("clist").innerHTML=ms.map(e=>{
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
       const n=Math.round(Math.abs(e.valor)/Math.abs(sobra||m.valor));
+      const d=dias(e.data,m.data);
       return `<div class="mv" data-e="${e.id}"><div class="d"><div class="t">${esc(e.desc)}</div>
-      <div class="sm mut">${fdate(e.data)} · ${esc(e.conta)} · ${esc(e.cat)} · por reembolsar ${EUR(falta)}${n>=2&&n<=15?` · ${n} pessoas`:""}</div></div>
-      <div class="v neg">${EUR(e.valor)}</div></div>`;}).join("")||'<div class="hint">Sem despesas compatíveis nos 90 dias anteriores.</div>';
+      <div class="sm mut">${fdate(e.data)}${d<0?" (posterior)":""} · ${esc(e.conta)} · ${esc(e.cat)} · por reembolsar ${EUR(falta)}${n>=2&&n<=15?` · ${n} pessoas`:""}</div></div>
+      <div class="v neg">${EUR(e.valor)}</div></div>`;}).join("")||'<div class="hint">Sem despesas compatíveis neste intervalo. Escreva o nome da despesa para procurar em todo o histórico.</div>';
     document.querySelectorAll("[data-e]").forEach(d=>d.onclick=()=>valorParcial(m,d.dataset.e));
   };
   document.getElementById("cq").oninput=draw; draw();
