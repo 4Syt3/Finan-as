@@ -323,7 +323,7 @@ function contaDe(nome){ return S.contas.find(c=>c.nome===nome); }
 function periodo(){
   const hoje=new Date(); const y=hoje.getFullYear();
   const p=S.ui.per;
-  const iso=d=>d.toISOString().slice(0,10);
+  const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   if(p==="mes"){ const d=new Date(y,hoje.getMonth(),1); return [iso(d), iso(new Date(y,hoje.getMonth()+1,0))]; }
   if(p==="3m"){ const d=new Date(y,hoje.getMonth()-2,1); return [iso(d), iso(new Date(y,hoje.getMonth()+1,0))]; }
   if(p==="ano"){ return [y+"-01-01", y+"-12-31"]; }
@@ -451,23 +451,37 @@ function render(){
   window.scrollTo(0,0);
 }
 
+function rotuloPeriodo(){
+  const f=S.ui;
+  return f.per==="mesEsp" ? (MESES[(f.mes||1)-1]+" "+(f.ano||new Date().getFullYear()))
+    : ({mes:"Este mês",ano:"Este ano",tudo:"Tudo"}[f.per]||"Período");
+}
+function sheetPeriodo(){
+  const f=S.ui, hoje=new Date();
+  openSheet(`<h2 style="margin:0 0 6px">Período</h2>
+    <div class="bar">${[["mes","Este mês"],["ano","Este ano"],["tudo","Tudo"]].map(([k,l])=>`<button data-p="${k}" class="${f.per===k?"primary":""}">${l}</button>`).join("")}</div>
+    <label>Ou escolher um mês</label>
+    <div style="display:flex;gap:8px">
+      <select id="pm">${MESES.map((x,k)=>`<option value="${k+1}" ${(f.mes||hoje.getMonth()+1)===k+1?"selected":""}>${x}</option>`).join("")}</select>
+      <select id="py">${(()=>{const anos=[];const a0=hoje.getFullYear();for(let y2=a0+1;y2>=a0-6;y2--)anos.push(y2);
+        return anos.map(y2=>`<option ${(f.ano||a0)===y2?"selected":""}>${y2}</option>`).join("");})()}</select>
+    </div>
+    <div class="bar"><button class="primary" id="pmok">Aplicar mês</button><button onclick="closeSheet()">Fechar</button></div>`);
+  document.querySelectorAll("[data-p]").forEach(x=>x.onclick=()=>{ S.ui.per=x.dataset.p; save(); closeSheet(); render(); });
+  document.getElementById("pmok").onclick=()=>{ S.ui.per="mesEsp"; S.ui.mes=+document.getElementById("pm").value;
+    S.ui.ano=+document.getElementById("py").value; save(); closeSheet(); render(); };
+}
 function selPeriodo(){
   const p=S.ui.per;
   return `<div class="filters">
-    ${["mes","ano","tudo"].map(k=>`<button data-per="${k}" class="${p===k?"primary":""}">${{mes:"Este mês",ao:"",ano:"Este ano",tudo:"Tudo"}[k]}</button>`).join("")}
-    <button data-per="cust" class="${p==="cust"?"primary":""}">Datas…</button>
+    ${["mes","ano","tudo"].map(k=>`<button data-per="${k}" class="${p===k?"primary":""}">${{mes:"Este mês",ano:"Este ano",tudo:"Tudo"}[k]}</button>`).join("")}
+    <button data-per="mesEsp" class="${p==="mesEsp"?"primary":""}">${p==="mesEsp"?esc(rotuloPeriodo()):"Escolher mês"} ▾</button>
   </div>`;
 }
 function wirePeriodo(){
   document.querySelectorAll("[data-per]").forEach(b=>b.onclick=()=>{
-    if(b.dataset.per==="cust"){
-      const [a,c]=periodo();
-      openSheet(`<h2 style="margin:0 0 6px">Período</h2>
-        <label>De</label><input type="date" id="pd" value="${a}">
-        <label>Até</label><input type="date" id="pa" value="${c}">
-        <div class="bar"><button class="primary" id="pok">Aplicar</button><button onclick="closeSheet()">Cancelar</button></div>`);
-      document.getElementById("pok").onclick=()=>{ S.ui.per="cust"; S.ui.de=document.getElementById("pd").value; S.ui.ate=document.getElementById("pa").value; save(); closeSheet(); render(); };
-    } else { S.ui.per=b.dataset.per; save(); render(); }
+    if(b.dataset.per==="mesEsp"){ sheetPeriodo(); }
+    else { S.ui.per=b.dataset.per; save(); render(); }
   });
 }
 
@@ -525,7 +539,8 @@ function viewGeral(){
     <h2 style="margin-left:0">Envelopes</h2><div class="card">${envHtml}</div>
 
     ${(()=>{ const e=esforcoPoupanca();
-      if(!e.paraProdutos && !e.retirado && !e.jurosProd) return "";
+      const temContas=S.contas.some(c=>contaPoupanca(c.nome));
+      const vazio = !e.paraProdutos && !e.retirado && !e.jurosProd && !e.porLigar;
       const tx = t.rec>0 ? (e.liquido/t.rec) : null;
       return `<h2 style="margin-left:0">Poupança no período</h2><div class="card">
         <div class="row"><div>Receitas − despesas</div><div class="v ${t.saldo<0?"neg":"pos"}">${EUR(t.saldo)}</div></div>
@@ -536,7 +551,7 @@ function viewGeral(){
         ${tx!==null?`<div class="row"><div class="sm mut">Sobre as receitas do período</div><div class="sm mut">${(tx*100).toFixed(1)}%</div></div>`:""}
         ${e.jurosProd?`<div class="row"><div class="sm mut">Juros recebidos nesses produtos</div><div class="sm pos">${EUR(e.jurosProd)}</div></div>`:""}
         ${e.porLigar?`<div class="tap" id="verPoupInt" style="border:0;padding:6px 0"><div class="row"><div class="sm mut">Movimentos internos sem contrapartida conhecida ›</div><div class="sm mut">${e.porLigar}</div></div></div>`:""}
-        <div class="hint">Conta o que entrou nas contas marcadas como poupança, menos o que saiu delas, e ainda as saídas para produtos que não estão registados como conta. Marque ou desmarque cada conta no separador Contas.</div>
+        <div class="hint">${!temContas?"Nenhuma conta está marcada como poupança. Marque-as no separador Contas para esta leitura ficar completa. ":""}${vazio?"Sem movimentos de poupança neste período. ":""}Conta o que entrou nas contas marcadas como poupança, menos o que saiu delas, e ainda as saídas para produtos que não estão registados como conta.</div>
       </div>`;})()}
 
     ${(pend||imp)?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent">
@@ -557,8 +572,7 @@ function viewGeral(){
 
 function viewMovs(){
   const f=S.ui;
-  const per = f.per==="mesEsp" ? (MESES[(f.mes||1)-1]+" "+(f.ano||new Date().getFullYear()))
-    : ({mes:"Este mês",ano:"Este ano",tudo:"Tudo",cust:"Datas"}[f.per]||"Datas");
+  const per = rotuloPeriodo();
   const cat = (f.fCat&&f.fCat!=="(todas)") ? f.fCat : ((f.fGrupo&&f.fGrupo!=="(todos)") ? f.fGrupo
     : ({rever:"Por rever",imputar:"Por imputar",poupanca:"Poupança",poupinterno:"Poupança interna"}[f.fEstado]||"Categorias"));
   const contasSel=f.fContas||[];
@@ -587,25 +601,7 @@ function viewMovs(){
   document.getElementById("fnovo").onclick=()=>novoMovimento(contasSel.length===1?contasSel[0]:null);
   document.getElementById("fclear").onclick=()=>{ Object.assign(S.ui,{fQ:"",fCat:"(todas)",fGrupo:"(todos)",fSub:"",fContas:[],fEstado:"",fSinal:"todos",fMin:"",fMax:"",fTag:"(todas)"}); save(); render(); };
 
-  document.getElementById("bdatas").onclick=()=>{
-    const [a,b]=periodo();
-    openSheet(`<h2 style="margin:0 0 6px">Período</h2>
-      <div class="bar">${[["tudo","Tudo"],["ano","Este ano"],["mes","Este mês"]].map(([k,l])=>`<button data-p="${k}" class="${f.per===k?"primary":""}">${l}</button>`).join("")}</div>
-      <label>Mês</label>
-      <div style="display:flex;gap:8px">
-        <select id="pm">${MESES.map((x,k)=>`<option value="${k+1}" ${(f.mes||new Date().getMonth()+1)===k+1?"selected":""}>${x}</option>`).join("")}</select>
-        <select id="py">${(()=>{const anos=[];const hoje=new Date().getFullYear();for(let y2=hoje+1;y2>=hoje-6;y2--)anos.push(y2);
-          return anos.map(y2=>`<option ${(f.ano||hoje)===y2?"selected":""}>${y2}</option>`).join("");})()}</select>
-      </div>
-      <div class="bar"><button class="primary" id="pmok">Aplicar mês</button></div>
-      <label>Intervalo de datas</label><input type="date" id="pd" value="${a}">
-      <input type="date" id="pa" value="${b}" style="margin-top:8px">
-      <div class="bar"><button class="primary" id="pok">Aplicar datas</button><button onclick="closeSheet()">Fechar</button></div>`);
-    document.getElementById("pmok").onclick=()=>{ S.ui.per="mesEsp"; S.ui.mes=+document.getElementById("pm").value;
-      S.ui.ano=+document.getElementById("py").value; save(); closeSheet(); render(); };
-    document.querySelectorAll("[data-p]").forEach(x=>x.onclick=()=>{ S.ui.per=x.dataset.p; save(); closeSheet(); render(); });
-    document.getElementById("pok").onclick=()=>{ S.ui.per="cust"; S.ui.de=document.getElementById("pd").value; S.ui.ate=document.getElementById("pa").value; save(); closeSheet(); render(); };
-  };
+  document.getElementById("bdatas").onclick=()=>sheetPeriodo();
 
   document.getElementById("bcats").onclick=()=>{
     const g=f.fGrupo||"(todos)";
