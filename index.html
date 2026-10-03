@@ -1003,28 +1003,29 @@ function sugestoesReembolso(){
   const entradas=S.movimentos.filter(m=>m.valor>0 && Math.abs(m.valor-reembTotal(m))>0.01 && tipoBase(m)!=="Transferência interna");
   const despesas=S.movimentos.filter(e=>e.valor<0 && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
   const sobraDe=m=>Math.round((m.valor-reembTotal(m))*100)/100;
+  const bate=(a,b)=>Math.abs(a-b)<0.015 || Math.abs(Math.round(a)-b)<0.015 || Math.abs(a-Math.round(b))<0.015;
   const out=[];
   for(const m of entradas){
     const sobra=sobraDe(m);
+    const grupo=entradas.filter(y=>Math.abs(dias(y.data,m.data))<=15 && bate(sobraDe(y),sobra));
+    const nPessoas=grupo.length+1;
     const mesmoDia=entradas.filter(y=>y.data===m.data);
     const somaDia=Math.round(mesmoDia.reduce((a,y)=>a+sobraDe(y),0)*100)/100;
     let melhor=null;
     for(const e of despesas){
       const d=dias(e.data,m.data);
-      if(d<0 || d>30) continue;
+      if(d<0 || d>15) continue;
       if((S.reembNao||{})[m.id+"|"+e.id]) continue;
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
-      const n=Math.round(falta/sobra);
       let tipo=null, score=null;
-      if(Math.abs(falta-sobra)<0.015){ tipo="total"; score=d; }
-      else if(n>=2 && n<=12 && Math.abs(falta/n-sobra)<=0.02 && d<=10
-              && entradas.filter(y=>Math.abs(sobraDe(y)-sobra)<0.02 && Math.abs(dias(y.data,m.data))<=7).length>=2){
-        tipo="parte "+n; score=100+d; }
-      else if(mesmoDia.length>1 && falta>=somaDia-0.015 && d<=10){
+      if(bate(falta,sobra)){ tipo="total"; score=d; }
+      else if(nPessoas>=2 && nPessoas<=15 && bate(falta/nPessoas,sobra)){
+        tipo="1 de "+nPessoas; score=100+d; }
+      else if(mesmoDia.length>1 && falta>=somaDia-0.015 && falta<=somaDia*2){
         tipo="do dia"; score=200+d+Math.abs(falta-somaDia)/100; }
       if(tipo && (!melhor || score<melhor.score)) melhor={e,tipo,score,d,somaDia};
     }
-    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra, somaDia:melhor.somaDia, mesmoDia:mesmoDia.length});
+    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra, somaDia:melhor.somaDia, mesmoDia:mesmoDia.length, grupo:grupo.length});
   }
   return out.sort((a,b)=>{
     const ord=x=>x.tipo==="total"?0:(x.tipo==="do dia"?2:1);
@@ -1036,9 +1037,10 @@ function sugestoesReembolso(){
 }
 function associarPartes(x){
   const falta=()=>Math.round((Math.abs(x.e.valor)-reembolsadoDe(x.e.id))*100)/100;
+  const bate=(a,b)=>Math.abs(a-b)<0.015 || Math.abs(Math.round(a)-b)<0.015 || Math.abs(a-Math.round(b))<0.015;
   const iguais=S.movimentos.filter(y=> y.valor>0 && y.id!==x.m.id
-    && Math.abs((y.valor-reembTotal(y))-x.sobra)<0.02
-    && Math.abs(dias(y.data,x.m.data))<=7
+    && bate(y.valor-reembTotal(y), x.sobra)
+    && Math.abs(dias(y.data,x.m.data))<=15
     && tipoBase(y)!=="Transferência interna"
     && !(S.reembNao||{})[y.id+"|"+x.e.id]);
   let n=0;
@@ -1057,12 +1059,12 @@ function verSugestoesReembolso(reiniciar){
   const l=sugestoesReembolso().filter(x=>!reembFeitos.has(x.m.id) && !reembFeitos.has(x.e.id));
   const descartadas=Object.keys(S.reembNao||{}).length;
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
-    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Primeiro as de valor igual e data mais próxima. A despesa tem de ser anterior ao reembolso, até 30 dias antes. "Parte N" é uma conta dividida por N pessoas; "do dia" é uma despesa que cobre todos os reembolsos recebidos nesse dia. "Associar partes" liga de uma vez as entradas do mesmo valor nos 7 dias à volta.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Janela de 15 dias, com a despesa sempre anterior ao reembolso. Considera valores iguais ou arredondados ao euro. "1 de N" assume que o número de pessoas é o número de reembolsos semelhantes mais um, por incluir o José. "Do dia" é uma despesa que cobre todos os reembolsos desse dia. "Associar partes" liga de uma vez as entradas semelhantes dos 15 dias à volta.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
     ${l.slice(0,40).map((x,i)=>`<div class="card">
       <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
         <div class="v pos">${EUR(x.sobra)}</div></div>
       <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
-        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":(x.tipo==="do dia"?("cobre os "+x.mesmoDia+" reembolsos do dia, "+EUR(x.somaDia)):esc(x.tipo))} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":d+" dias antes";})()}</div></div>
+        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":(x.tipo==="do dia"?("cobre os "+x.mesmoDia+" reembolsos do dia, "+EUR(x.somaDia)):(esc(x.tipo)+" pessoas"))} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":d+" dias antes";})()}</div></div>
         <div class="v neg">${EUR(x.e.valor)}</div></div>
       <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button>
         ${x.tipo!=="total"?`<button data-partes="${i}">Associar partes</button>`:""}
