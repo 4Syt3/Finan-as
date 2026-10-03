@@ -859,8 +859,14 @@ function detalhe(id){
         <div>${esc(p.desc)}</div><div class="sm mut">${fdate(p.data)} · ${esc(p.conta)} · ${EUR(p.valor)}</div>
         <div class="bar"><button id="unpar">Desligar</button></div></div>`;
       return `<div class="bar" style="margin-top:12px"><button id="dpar">Ligar a transferência noutra conta…</button></div>`;})()}
-    ${(m.valor<0&&recebido>0.005)?`<div class="card" style="margin-top:12px"><div class="row"><div class="sm mut">Reembolsos recebidos</div><div class="v">${EUR(recebido)}</div></div>
-      <div class="row"><div class="sm mut">Custo líquido</div><div class="v">${EUR(m.valor+recebido)}</div></div></div>`:""}
+    ${m.valor<0?`<div class="card" style="margin-top:12px">
+      <div class="row"><div class="sm mut">Reembolsos recebidos</div><div class="v">${EUR(recebido)}</div></div>
+      ${recebido>0.005?`<div class="row"><div class="sm mut">Custo líquido</div><div class="v">${EUR(m.valor+recebido)}</div></div>
+      ${S.movimentos.filter(x=>(x.reemb||[]).some(r=>r.mov===m.id)).map(x=>`<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
+        <div style="min-width:0"><div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(x.desc)}</div>
+          <div class="sm mut">${fdate(x.data)} · ${esc(x.conta)}</div></div>
+        <div class="v pos">${EUR((x.reemb.find(r=>r.mov===m.id)||{}).valor||0)}</div></div>`).join("")}`:""}
+      <div class="bar"><button id="dreembDesp">Associar reembolsos…</button></div></div>`:""}
 
     ${(c&&c.envelopes)?`<div class="card" style="margin-top:12px">
       <div class="row"><div class="sm mut">Envelopes</div><div class="sm ${Math.abs(somaEnv-m.valor)>0.005?"neg":"mut"}">${EUR(somaEnv)} de ${EUR(m.valor)}</div></div>
@@ -896,6 +902,7 @@ function detalhe(id){
   const rb2=document.getElementById("dreemb2"); if(rb2) rb2.onclick=()=>escolherDespesa(m);
   const up=document.getElementById("unpar"); if(up) up.onclick=()=>{ const p=byId(m.par); if(p) p.par=null; m.par=null; save(); detalhe(m.id); render(); };
   const dp=document.getElementById("dpar"); if(dp) dp.onclick=()=>ligarTransferencia(m);
+  const dre=document.getElementById("dreembDesp"); if(dre) dre.onclick=()=>escolherReembolsos(m);
   const cr=document.getElementById("drule"); if(cr) cr.onclick=()=>criarRegra(m);
   const dd=document.getElementById("ddel"); if(dd) dd.onclick=()=>{
     if(!confirm("Apagar este movimento? Esta ação não se desfaz.")) return;
@@ -1172,6 +1179,57 @@ function escolherDespesa(m){
   document.getElementById("cval").onclick=()=>{
     if(sel.size!==1){ alert("Selecione exatamente uma despesa para indicar o valor."); return; }
     valorParcial(m,[...sel][0]);
+  };
+  draw(); info();
+}
+function escolherReembolsos(e){
+  const faltaDe=()=>Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
+  const base=S.movimentos.filter(x=> x.valor>0 && tipoBase(x)!=="Transferência interna"
+    && Math.round((x.valor-reembTotal(x))*100)/100>0.01
+    && !(x.reemb||[]).some(r=>r.mov===e.id));
+  const dentro=x=>{ const d=dias(e.data,x.data); return d>=-30 && d<=90; };
+  const sel=new Set();
+  openSheet(`<h2 style="margin:0 0 4px">Reembolsos desta despesa</h2>
+    <div class="hint" id="rinfo"></div>
+    <label>Procurar</label><input type="text" id="rq" placeholder="nome da entrada…">
+    <div class="list" id="rlist2"></div>
+    <div class="bar"><button class="primary" id="rok">Associar selecionados</button><button onclick="closeSheet()">Fechar</button></div>
+    <div class="hint">Toque para selecionar vários. Cada entrada entra com o valor que tiver por atribuir, até se esgotar o valor da despesa.</div>`);
+  const info=()=>{
+    let falta=faltaDe(); let usado=0;
+    [...sel].forEach(id=>{ const x=byId(id); const s=Math.round((x.valor-reembTotal(x))*100)/100;
+      const v=Math.min(falta,s); usado+=v; falta=Math.round((falta-v)*100)/100; });
+    document.getElementById("rinfo").innerHTML=`Despesa de ${EUR(e.valor)} em ${fdate(e.data)}. Por reembolsar: <b>${EUR(faltaDe())}</b>.`
+      + (sel.size?` Selecionados ${sel.size}, a associar ${EUR(usado)}${falta>0.01?`, ficam ${EUR(falta)} por reembolsar`:""}.`:"");
+  };
+  const draw=()=>{
+    const q=(document.getElementById("rq").value||"").toLowerCase();
+    const fonte = q ? base.filter(x=>x.desc.toLowerCase().includes(q)) : base.filter(dentro);
+    const ms=fonte.sort((a,b)=> a.data<b.data?1:a.data>b.data?-1:0).slice(0,40);
+    document.getElementById("rlist2").innerHTML=ms.map(x=>{
+      const s=Math.round((x.valor-reembTotal(x))*100)/100;
+      return `<div class="mv" data-r="${x.id}" style="${sel.has(x.id)?"background:var(--chip)":""}">
+        <div style="width:22px;flex:0 0 22px;font-size:17px">${sel.has(x.id)?"☑":"☐"}</div>
+        <div class="d"><div class="t">${esc(x.desc)}</div>
+          <div class="sm mut">${fdate(x.data)} · ${esc(x.conta)} · por atribuir ${EUR(s)}</div></div>
+        <div class="v pos">${EUR(x.valor)}</div></div>`;}).join("")
+      ||'<div class="hint">Sem entradas por associar neste intervalo. Escreva o nome para procurar em todo o histórico.</div>';
+    document.querySelectorAll("[data-r]").forEach(d=>d.onclick=()=>{
+      const id=d.dataset.r; if(sel.has(id)) sel.delete(id); else sel.add(id); draw(); info(); });
+  };
+  document.getElementById("rq").oninput=draw;
+  document.getElementById("rok").onclick=()=>{
+    if(!sel.size){ alert("Selecione pelo menos uma entrada."); return; }
+    let falta=faltaDe(); let n=0;
+    for(const id of sel){
+      if(falta<=0.01) break;
+      const x=byId(id); const s=Math.round((x.valor-reembTotal(x))*100)/100;
+      const v=Math.min(falta,s); if(v<=0.01) continue;
+      x.reemb=x.reemb||[]; x.reemb.push({mov:e.id, valor:v}); x.manual=true; n++;
+      falta=Math.round((falta-v)*100)/100;
+    }
+    save(); closeSheet(); detalhe(e.id); render();
+    alert(n+" entradas associadas."+(falta>0.01?" Ficam "+EUR(falta)+" por reembolsar.":""));
   };
   draw(); info();
 }
