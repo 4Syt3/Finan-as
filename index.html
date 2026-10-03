@@ -1002,45 +1002,70 @@ function ligarTransferencia(m){
 function sugestoesReembolso(){
   const entradas=S.movimentos.filter(m=>m.valor>0 && Math.abs(m.valor-reembTotal(m))>0.01 && tipoBase(m)!=="Transferência interna");
   const despesas=S.movimentos.filter(e=>e.valor<0 && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
+  const sobraDe=m=>Math.round((m.valor-reembTotal(m))*100)/100;
   const out=[];
   for(const m of entradas){
-    const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
+    const sobra=sobraDe(m);
+    const mesmoDia=entradas.filter(y=>y.data===m.data);
+    const somaDia=Math.round(mesmoDia.reduce((a,y)=>a+sobraDe(y),0)*100)/100;
     let melhor=null;
     for(const e of despesas){
       const d=dias(e.data,m.data);
-      if(d<-5 || d>30) continue;
+      if(d<0 || d>30) continue;
+      if((S.reembNao||{})[m.id+"|"+e.id]) continue;
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
       const n=Math.round(falta/sobra);
       let tipo=null, score=null;
-      if(Math.abs(falta-sobra)<0.015){ tipo="total"; score=Math.abs(d); }
-      else if(n>=2 && n<=12 && Math.abs(falta/n-sobra)<=0.02 && d>=-3 && d<=10
-              && entradas.filter(y=>Math.abs(y.valor-m.valor)<0.02 && Math.abs(dias(y.data,m.data))<=7).length>=2){
-        tipo="parte "+n; score=Math.abs(d)+100; }
-      if(tipo && !(S.reembNao||{})[m.id+"|"+e.id] && (!melhor || score<melhor.score)) melhor={e,tipo,score,d};
+      if(Math.abs(falta-sobra)<0.015){ tipo="total"; score=d; }
+      else if(n>=2 && n<=12 && Math.abs(falta/n-sobra)<=0.02 && d<=10
+              && entradas.filter(y=>Math.abs(sobraDe(y)-sobra)<0.02 && Math.abs(dias(y.data,m.data))<=7).length>=2){
+        tipo="parte "+n; score=100+d; }
+      else if(mesmoDia.length>1 && falta>=somaDia-0.015 && d<=10){
+        tipo="do dia"; score=200+d+Math.abs(falta-somaDia)/100; }
+      if(tipo && (!melhor || score<melhor.score)) melhor={e,tipo,score,d,somaDia};
     }
-    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra});
+    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra, somaDia:melhor.somaDia, mesmoDia:mesmoDia.length});
   }
   return out.sort((a,b)=>{
-    const ta=a.tipo==="total"?0:1, tb=b.tipo==="total"?0:1;
-    if(ta!==tb) return ta-tb;
+    const ord=x=>x.tipo==="total"?0:(x.tipo==="do dia"?2:1);
+    const oa=ord(a), ob=ord(b);
+    if(oa!==ob) return oa-ob;
     const da=Math.abs(dias(a.e.data,a.m.data)), db=Math.abs(dias(b.e.data,b.m.data));
     if(da!==db) return da-db;
     return b.sobra-a.sobra; });
 }
-let reembFeitos=new Set();
+function associarPartes(x){
+  const falta=()=>Math.round((Math.abs(x.e.valor)-reembolsadoDe(x.e.id))*100)/100;
+  const iguais=S.movimentos.filter(y=> y.valor>0 && y.id!==x.m.id
+    && Math.abs((y.valor-reembTotal(y))-x.sobra)<0.02
+    && Math.abs(dias(y.data,x.m.data))<=7
+    && tipoBase(y)!=="Transferência interna"
+    && !(S.reembNao||{})[y.id+"|"+x.e.id]);
+  let n=0;
+  if(falta()>=x.sobra-0.01){ x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id,valor:x.sobra}); x.m.manual=true; n++; reembFeitos.add(x.m.id); }
+  for(const y of iguais){
+    const s=Math.round((y.valor-reembTotal(y))*100)/100;
+    if(falta()<s-0.01) break;
+    y.reemb=y.reemb||[]; y.reemb.push({mov:x.e.id,valor:s}); y.manual=true; n++; reembFeitos.add(y.id);
+  }
+  if(falta()<=0.01) reembFeitos.add(x.e.id);
+  save(); verSugestoesReembolso(false); render();
+  alert(n+" entradas associadas a "+x.e.desc.slice(0,30)+". Falta reembolsar "+EUR(falta())+".");
+}
 function verSugestoesReembolso(reiniciar){
   if(reiniciar!==false) reembFeitos=new Set();
   const l=sugestoesReembolso().filter(x=>!reembFeitos.has(x.m.id) && !reembFeitos.has(x.e.id));
   const descartadas=Object.keys(S.reembNao||{}).length;
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
-    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Primeiro as de valor igual e data mais próxima. A despesa pode ser até 30 dias antes ou 5 dias depois do reembolso. "Parte N" é uma conta dividida por N pessoas. Confirme uma a uma.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Primeiro as de valor igual e data mais próxima. A despesa tem de ser anterior ao reembolso, até 30 dias antes. "Parte N" é uma conta dividida por N pessoas; "do dia" é uma despesa que cobre todos os reembolsos recebidos nesse dia. "Associar partes" liga de uma vez as entradas do mesmo valor nos 7 dias à volta.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
     ${l.slice(0,40).map((x,i)=>`<div class="card">
       <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
         <div class="v pos">${EUR(x.sobra)}</div></div>
       <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
-        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":esc(x.tipo)} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":(d>0?d+" dias antes":(-d)+" dias depois");})()}</div></div>
+        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":(x.tipo==="do dia"?("cobre os "+x.mesmoDia+" reembolsos do dia, "+EUR(x.somaDia)):esc(x.tipo))} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":d+" dias antes";})()}</div></div>
         <div class="v neg">${EUR(x.e.valor)}</div></div>
       <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button>
+        ${x.tipo!=="total"?`<button data-partes="${i}">Associar partes</button>`:""}
         <button data-nao-r="${i}">Descartar</button>
         <button data-abrir-r="${esc(x.m.id)}">Abrir entrada</button></div>
     </div>`).join("")}
@@ -1053,8 +1078,10 @@ function verSugestoesReembolso(reiniciar){
   document.querySelectorAll("[data-ok-r]").forEach(b=>b.onclick=()=>{
     const x=l[+b.dataset.okR]; if(!x) return;
     x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id, valor:x.sobra}); x.m.manual=true;
-    reembFeitos.add(x.m.id); reembFeitos.add(x.e.id);
+    reembFeitos.add(x.m.id);
+    if(Math.abs(x.e.valor)-reembolsadoDe(x.e.id) <= 0.01) reembFeitos.add(x.e.id);
     save(); verSugestoesReembolso(false); render(); });
+  document.querySelectorAll("[data-partes]").forEach(b=>b.onclick=()=>{ const x=l[+b.dataset.partes]; if(x) associarPartes(x); });
   document.querySelectorAll("[data-nao-r]").forEach(b=>b.onclick=()=>{
     const x=l[+b.dataset.naoR]; if(!x) return;
     S.reembNao=S.reembNao||{}; S.reembNao[x.m.id+"|"+x.e.id]=1;
@@ -1065,7 +1092,8 @@ function verSugestoesReembolso(reiniciar){
     if(!iguais.length){ alert("Não há associações de valor exatamente igual."); return; }
     if(!confirm("Associar "+iguais.length+" entradas às despesas de valor igual?")) return;
     iguais.forEach(x=>{ x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id, valor:x.sobra}); x.m.manual=true;
-      reembFeitos.add(x.m.id); reembFeitos.add(x.e.id); });
+      reembFeitos.add(x.m.id);
+      if(Math.abs(x.e.valor)-reembolsadoDe(x.e.id) <= 0.01) reembFeitos.add(x.e.id); });
     save(); closeSheet(); render(); };
 }
 function escolherDespesa(m){
@@ -1475,7 +1503,11 @@ function viewDados(){
       <div class="hint">Apaga a subcategoria de todos os movimentos e regras. As categorias e as classificações não são afetadas.</div></div>
     <div class="card"><b>Reembolsos</b>
       <div class="hint">Procura entradas por associar com uma despesa anterior de valor compatível, igual ou dividido por várias pessoas.</div>
-      <div class="bar"><button id="verReemb">Procurar reembolsos prováveis</button></div></div>
+      <div class="hint">${(()=>{const n=S.movimentos.filter(m=>m.reemb&&m.reemb.length).length;
+        const v=S.movimentos.reduce((t,m)=>t+(m.reemb||[]).reduce((a,r)=>a+r.valor,0),0);
+        return n?`${n} entradas associadas, ${EUR(v)} a abater a despesas.`:"Sem associações.";})()}</div>
+      <div class="bar"><button id="verReemb">Procurar reembolsos prováveis</button>
+        <button id="limparReemb">Limpar associações</button></div></div>
     <div class="card"><b>Duplicados</b>
       <div class="hint">Procura movimentos repetidos na mesma conta, com a mesma descrição e valor.</div>
       <div class="bar"><button id="verDup">Procurar duplicados</button></div></div>
@@ -1500,6 +1532,15 @@ function viewDados(){
     r.readAsText(f);
   };
   document.getElementById("verReemb").onclick=()=>verSugestoesReembolso();
+  document.getElementById("limparReemb").onclick=()=>{
+    const n=S.movimentos.filter(m=>m.reemb&&m.reemb.length).length;
+    const d=Object.keys(S.reembNao||{}).length;
+    if(!n && !d){ alert("Não há associações nem sugestões descartadas."); return; }
+    if(!confirm("Apagar "+n+" associações de reembolso"+(d?" e repor "+d+" sugestões descartadas":"")+"? As categorias e os movimentos mantêm-se.")) return;
+    S.movimentos.forEach(m=>{ m.reemb=[]; });
+    S.reembNao={}; reembFeitos=new Set();
+    save(); render(); alert("Associações apagadas.");
+  };
   document.getElementById("verDup").onclick=()=>verDuplicados();
   document.getElementById("verRegras").onclick=()=>verRegras();
   document.getElementById("novaRegra").onclick=()=>editRegra(null);
