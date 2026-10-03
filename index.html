@@ -999,48 +999,53 @@ function ligarTransferencia(m){
     save(); closeSheet(); detalhe(m.id); render();
   });
 }
+const GRUPOS_REEMB=[
+  "Valores exatos, no mesmo dia",
+  "Divisões por N+1 exatas, no mesmo dia",
+  "Valores aproximados, no mesmo dia",
+  "Divisões por N+1 aproximadas, no mesmo dia",
+  "Valores exatos, até 5 dias depois",
+  "Valores semelhantes, até 5 dias depois"];
 function sugestoesReembolso(){
   const entradas=S.movimentos.filter(m=>m.valor>0 && Math.abs(m.valor-reembTotal(m))>0.01 && tipoBase(m)!=="Transferência interna");
   const despesas=S.movimentos.filter(e=>e.valor<0 && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
   const sobraDe=m=>Math.round((m.valor-reembTotal(m))*100)/100;
-  const bate=(a,b)=>Math.abs(a-b)<0.015 || Math.abs(Math.round(a)-b)<0.015 || Math.abs(a-Math.round(b))<0.015;
+  const exato=(a,b)=>Math.abs(a-b)<0.015;
+  const semelhante=(a,b)=>Math.abs(a-b)<=1.0;
+  const aprox=(a,b)=>!exato(a,b) && semelhante(a,b);
   const out=[];
   for(const m of entradas){
     const sobra=sobraDe(m);
-    const grupo=entradas.filter(y=>Math.abs(dias(y.data,m.data))<=15 && bate(sobraDe(y),sobra));
-    const nPessoas=grupo.length+1;
-    const mesmoDia=entradas.filter(y=>y.data===m.data);
-    const somaDia=Math.round(mesmoDia.reduce((a,y)=>a+sobraDe(y),0)*100)/100;
+    const grupo=entradas.filter(y=>Math.abs(dias(y.data,m.data))<=5 && semelhante(sobraDe(y),sobra));
+    const n=grupo.length+1;
     let melhor=null;
     for(const e of despesas){
       const d=dias(e.data,m.data);
-      if(d<0 || d>15) continue;
+      if(d<0 || d>5) continue;
       if((S.reembNao||{})[m.id+"|"+e.id]) continue;
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
-      let tipo=null, score=null;
-      if(bate(falta,sobra)){ tipo="total"; score=d; }
-      else if(nPessoas>=2 && nPessoas<=15 && bate(falta/nPessoas,sobra)){
-        tipo="1 de "+nPessoas; score=100+d; }
-      else if(mesmoDia.length>1 && falta>=somaDia-0.015 && falta<=somaDia*2){
-        tipo="do dia"; score=200+d+Math.abs(falta-somaDia)/100; }
-      if(tipo && (!melhor || score<melhor.score)) melhor={e,tipo,score,d,somaDia};
+      const parte=(n>=2 && n<=15) ? falta/n : null;
+      let g=null, tipo=null;
+      if(d===0 && exato(falta,sobra)){ g=0; tipo="valor igual"; }
+      else if(d===0 && parte!==null && exato(parte,sobra)){ g=1; tipo="1 de "+n; }
+      else if(d===0 && aprox(falta,sobra)){ g=2; tipo="valor aproximado"; }
+      else if(d===0 && parte!==null && aprox(parte,sobra)){ g=3; tipo="1 de "+n+" (aprox.)"; }
+      else if(d>0 && exato(falta,sobra)){ g=4; tipo="valor igual"; }
+      else if(d>0 && semelhante(falta,sobra)){ g=5; tipo="valor aproximado"; }
+      else if(d>0 && parte!==null && semelhante(parte,sobra)){ g=5; tipo="1 de "+n+" (aprox.)"; }
+      if(g!==null){ const score=g*1000+d*10; if(!melhor || score<melhor.score) melhor={e,tipo,g,score,d}; }
     }
-    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra, somaDia:melhor.somaDia, mesmoDia:mesmoDia.length, grupo:grupo.length});
+    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, g:melhor.g, sobra, n});
   }
-  return out.sort((a,b)=>{
-    const ord=x=>x.tipo==="total"?0:(x.tipo==="do dia"?2:1);
-    const oa=ord(a), ob=ord(b);
-    if(oa!==ob) return oa-ob;
-    const da=Math.abs(dias(a.e.data,a.m.data)), db=Math.abs(dias(b.e.data,b.m.data));
-    if(da!==db) return da-db;
-    return b.sobra-a.sobra; });
+  return out.sort((a,b)=> a.g!==b.g ? a.g-b.g
+    : (dias(a.e.data,a.m.data)-dias(b.e.data,b.m.data)) || (b.sobra-a.sobra));
 }
 function associarPartes(x){
   const falta=()=>Math.round((Math.abs(x.e.valor)-reembolsadoDe(x.e.id))*100)/100;
   const bate=(a,b)=>Math.abs(a-b)<0.015 || Math.abs(Math.round(a)-b)<0.015 || Math.abs(a-Math.round(b))<0.015;
   const iguais=S.movimentos.filter(y=> y.valor>0 && y.id!==x.m.id
-    && bate(y.valor-reembTotal(y), x.sobra)
-    && Math.abs(dias(y.data,x.m.data))<=15
+    && Math.abs((y.valor-reembTotal(y)) - x.sobra)<=1.0
+    && Math.abs(dias(y.data,x.m.data))<=5
     && tipoBase(y)!=="Transferência interna"
     && !(S.reembNao||{})[y.id+"|"+x.e.id]);
   let n=0;
@@ -1059,19 +1064,25 @@ function verSugestoesReembolso(reiniciar){
   const l=sugestoesReembolso().filter(x=>!reembFeitos.has(x.m.id) && !reembFeitos.has(x.e.id));
   const descartadas=Object.keys(S.reembNao||{}).length;
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
-    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Janela de 15 dias, com a despesa sempre anterior ao reembolso. Considera valores iguais ou arredondados ao euro. "1 de N" assume que o número de pessoas é o número de reembolsos semelhantes mais um, por incluir o José. "Do dia" é uma despesa que cobre todos os reembolsos desse dia. "Associar partes" liga de uma vez as entradas semelhantes dos 15 dias à volta.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
-    ${l.slice(0,40).map((x,i)=>`<div class="card">
-      <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
-        <div class="v pos">${EUR(x.sobra)}</div></div>
-      <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
-        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":(x.tipo==="do dia"?("cobre os "+x.mesmoDia+" reembolsos do dia, "+EUR(x.somaDia)):(esc(x.tipo)+" pessoas"))} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":d+" dias antes";})()}</div></div>
-        <div class="v neg">${EUR(x.e.valor)}</div></div>
-      <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button>
-        ${x.tipo!=="total"?`<button data-partes="${i}">Associar partes</button>`:""}
-        <button data-nao-r="${i}">Descartar</button>
-        <button data-abrir-r="${esc(x.m.id)}">Abrir entrada</button></div>
-    </div>`).join("")}
-    ${l.length?`<div class="bar"><button id="assocTodas">Associar todas as iguais (${l.filter(x=>x.tipo==="total").length})</button>
+    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Agrupadas por fiabilidade: primeiro os valores exatos no mesmo dia, por fim os aproximados até 5 dias depois. "1 de N" assume que o número de pessoas é o de reembolsos semelhantes mais um, por incluir o José. Aproximado é uma diferença até 1 €.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    ${(()=>{ let html="", gAtual=-1;
+      l.slice(0,60).forEach((x,i)=>{
+        if(x.g!==gAtual){ gAtual=x.g; html+=`<h2 style="margin:16px 0 6px 0">${esc(GRUPOS_REEMB[x.g])}</h2>`; }
+        html+=`<div class="card">
+          <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
+            <div class="v pos">${EUR(x.sobra)}</div></div>
+          <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
+            <div><div class="t">${esc(x.e.desc.slice(0,38))}</div>
+              <div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${esc(x.tipo)} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":d+(d===1?" dia antes":" dias antes");})()}</div></div>
+            <div class="v neg">${EUR(x.e.valor)}</div></div>
+          <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button>
+            ${x.tipo.indexOf("1 de")===0?`<button data-partes="${i}">Associar partes</button>`:""}
+            <button data-nao-r="${i}">Descartar</button>
+            <button data-abrir-r="${esc(x.m.id)}">Abrir entrada</button></div>
+        </div>`;
+      });
+      return html; })()}
+    ${l.length?`<div class="bar"><button id="assocTodas">Associar as exatas do mesmo dia (${l.filter(x=>x.g===0).length})</button>
         ${descartadas?`<button id="repor">Repor descartadas (${descartadas})</button>`:""}<button onclick="closeSheet()">Fechar</button></div>`
       :`<div class="bar">${descartadas?`<button id="repor">Repor descartadas (${descartadas})</button>`:""}<button onclick="closeSheet()">Fechar</button></div>`}`);
   const rp=document.getElementById("repor"); if(rp) rp.onclick=()=>{
@@ -1090,7 +1101,7 @@ function verSugestoesReembolso(reiniciar){
     save(); verSugestoesReembolso(false); render(); });
   document.querySelectorAll("[data-abrir-r]").forEach(b=>b.onclick=()=>{ closeSheet(); detalhe(b.dataset.abrirR); });
   const at=document.getElementById("assocTodas"); if(at) at.onclick=()=>{
-    const iguais=l.filter(x=>x.tipo==="total");
+    const iguais=l.filter(x=>x.g===0);
     if(!iguais.length){ alert("Não há associações de valor exatamente igual."); return; }
     if(!confirm("Associar "+iguais.length+" entradas às despesas de valor igual?")) return;
     iguais.forEach(x=>{ x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id, valor:x.sobra}); x.m.manual=true;
