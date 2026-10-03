@@ -1003,9 +1003,7 @@ const GRUPOS_REEMB=[
   "Valores exatos, no mesmo dia",
   "Divisões por N+1 exatas, no mesmo dia",
   "Valores aproximados, no mesmo dia",
-  "Divisões por N+1 aproximadas, no mesmo dia",
-  "Valores exatos, até 5 dias depois",
-  "Valores semelhantes, até 5 dias depois"];
+  "Valores exatos, até 5 dias depois"];
 function sugestoesReembolso(){
   const entradas=S.movimentos.filter(m=>m.valor>0 && Math.abs(m.valor-reembTotal(m))>0.01 && tipoBase(m)!=="Transferência interna");
   const despesas=S.movimentos.filter(e=>e.valor<0 && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
@@ -1029,10 +1027,7 @@ function sugestoesReembolso(){
       if(d===0 && exato(falta,sobra)){ g=0; tipo="valor igual"; }
       else if(d===0 && parte!==null && exato(parte,sobra)){ g=1; tipo="1 de "+n; }
       else if(d===0 && aprox(falta,sobra)){ g=2; tipo="valor aproximado"; }
-      else if(d===0 && parte!==null && aprox(parte,sobra)){ g=3; tipo="1 de "+n+" (aprox.)"; }
-      else if(d>0 && exato(falta,sobra)){ g=4; tipo="valor igual"; }
-      else if(d>0 && semelhante(falta,sobra)){ g=5; tipo="valor aproximado"; }
-      else if(d>0 && parte!==null && semelhante(parte,sobra)){ g=5; tipo="1 de "+n+" (aprox.)"; }
+      else if(d>0 && exato(falta,sobra)){ g=3; tipo="valor igual"; }
       if(g!==null){ const score=g*1000+d*10; if(!melhor || score<melhor.score) melhor={e,tipo,g,score,d}; }
     }
     if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, g:melhor.g, sobra, n});
@@ -1064,7 +1059,7 @@ function verSugestoesReembolso(reiniciar){
   const l=sugestoesReembolso().filter(x=>!reembFeitos.has(x.m.id) && !reembFeitos.has(x.e.id));
   const descartadas=Object.keys(S.reembNao||{}).length;
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
-    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Agrupadas por fiabilidade: primeiro os valores exatos no mesmo dia, por fim os aproximados até 5 dias depois. "1 de N" assume que o número de pessoas é o de reembolsos semelhantes mais um, por incluir o José. Aproximado é uma diferença até 1 €.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Agrupadas por fiabilidade: valores exatos no mesmo dia, divisões por N+1 exatas no mesmo dia, valores aproximados no mesmo dia e valores exatos até 5 dias depois. "1 de N" assume que o número de pessoas é o de reembolsos semelhantes mais um, por incluir o José. Aproximado é uma diferença até 1 €.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
     ${(()=>{ let html="", gAtual=-1;
       l.slice(0,60).forEach((x,i)=>{
         if(x.g!==gAtual){ gAtual=x.g; html+=`<h2 style="margin:16px 0 6px 0">${esc(GRUPOS_REEMB[x.g])}</h2>`; }
