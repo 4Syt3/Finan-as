@@ -998,6 +998,56 @@ function ligarTransferencia(m){
     save(); closeSheet(); detalhe(m.id); render();
   });
 }
+function sugestoesReembolso(){
+  const entradas=S.movimentos.filter(m=>m.valor>0 && Math.abs(m.valor-reembTotal(m))>0.01 && tipoBase(m)!=="Transferência interna");
+  const despesas=S.movimentos.filter(e=>e.valor<0 && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
+  const out=[];
+  for(const m of entradas){
+    const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
+    let melhor=null;
+    for(const e of despesas){
+      const d=dias(e.data,m.data);
+      if(d<-15 || d>90) continue;
+      const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
+      const n=Math.round(falta/sobra);
+      let tipo=null, score=null;
+      if(Math.abs(falta-sobra)<0.015){ tipo="total"; score=Math.abs(d); }
+      else if(n>=2 && n<=12 && Math.abs(falta/n-sobra)<=0.02 && d>=-3 && d<=10
+              && entradas.filter(y=>Math.abs(y.valor-m.valor)<0.02 && Math.abs(dias(y.data,m.data))<=7).length>=2){
+        tipo="parte "+n; score=Math.abs(d)+100; }
+      if(tipo && (!melhor || score<melhor.score)) melhor={e,tipo,score,d};
+    }
+    if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra});
+  }
+  return out.sort((a,b)=>{ const ta=a.tipo==="total"?0:1, tb=b.tipo==="total"?0:1;
+    return ta!==tb ? ta-tb : b.sobra-a.sobra; });
+}
+function verSugestoesReembolso(){
+  const l=sugestoesReembolso();
+  openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
+    <div class="hint">${l.length?`${l.length} entradas com uma despesa de valor compatível. "Igual" é o mesmo valor; "parte N" é uma conta dividida por N pessoas. Confirme uma a uma.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    ${l.slice(0,40).map((x,i)=>`<div class="card">
+      <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
+        <div class="v pos">${EUR(x.sobra)}</div></div>
+      <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
+        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":esc(x.tipo)}</div></div>
+        <div class="v neg">${EUR(x.e.valor)}</div></div>
+      <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button><button data-abrir-r="${esc(x.m.id)}">Abrir entrada</button></div>
+    </div>`).join("")}
+    ${l.length?`<div class="bar"><button id="assocTodas">Associar todas as iguais (${l.filter(x=>x.tipo==="total").length})</button><button onclick="closeSheet()">Fechar</button></div>`
+      :`<div class="bar"><button onclick="closeSheet()">Fechar</button></div>`}`);
+  document.querySelectorAll("[data-ok-r]").forEach(b=>b.onclick=()=>{
+    const x=l[+b.dataset.okR]; if(!x) return;
+    x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id, valor:x.sobra}); x.m.manual=true;
+    save(); verSugestoesReembolso(); render(); });
+  document.querySelectorAll("[data-abrir-r]").forEach(b=>b.onclick=()=>{ closeSheet(); detalhe(b.dataset.abrirR); });
+  const at=document.getElementById("assocTodas"); if(at) at.onclick=()=>{
+    const iguais=l.filter(x=>x.tipo==="total");
+    if(!iguais.length){ alert("Não há associações de valor exatamente igual."); return; }
+    if(!confirm("Associar "+iguais.length+" entradas às despesas de valor igual?")) return;
+    iguais.forEach(x=>{ x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id, valor:x.sobra}); x.m.manual=true; });
+    save(); closeSheet(); render(); };
+}
 function escolherDespesa(m){
   const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
   const jaUsadas=new Set((m.reemb||[]).map(r=>r.mov));
@@ -1222,13 +1272,16 @@ function usosRegra(id){
 }
 function verRegras(){
   S.ui.qRegra=S.ui.qRegra||"";
-  const q=S.ui.qRegra.toLowerCase();
-  const lista=S.regras.map((r,i)=>({r,i})).filter(({r})=>!q || (r.p||"").toLowerCase().includes(q) || (r.c||"").toLowerCase().includes(q));
   openSheet(`<h2 style="margin:0 0 6px">Regras</h2>
     <div class="hint">A ordem conta: vale a primeira que corresponder. Use as setas para subir ou descer uma regra.</div>
     <input type="text" id="qr" placeholder="Procurar regra…" value="${esc(S.ui.qRegra)}">
     <div class="bar"><button class="primary" id="nr">Nova regra</button><button onclick="closeSheet()">Fechar</button></div>
-    <div class="list" style="margin-top:10px">${lista.slice(0,120).map(({r,i})=>`
+    <div id="rlist" style="margin-top:10px"></div>`);
+  const campo=document.getElementById("qr");
+  const desenhar=()=>{
+    const q=(S.ui.qRegra||"").toLowerCase();
+    const lista=S.regras.map((r,i)=>({r,i})).filter(({r})=>!q || (r.p||"").toLowerCase().includes(q) || (r.c||"").toLowerCase().includes(q));
+    document.getElementById("rlist").innerHTML=`<div class="list">${lista.slice(0,120).map(({r,i})=>`
       <div class="mv" style="align-items:center">
         <div class="d" data-edit-r="${esc(r.id)}">
           <div class="t">${esc(r.p)}</div>
@@ -1238,16 +1291,18 @@ function verRegras(){
           <button data-up="${esc(r.id)}" style="height:30px;line-height:28px;padding:0 9px">↑</button>
           <button data-down="${esc(r.id)}" style="height:30px;line-height:28px;padding:0 9px">↓</button>
         </div>
-      </div>`).join("")||'<div class="hint">Sem regras.</div>'}</div>
-    ${lista.length>120?`<div class="hint">A mostrar as primeiras 120 de ${lista.length}.</div>`:""}`);
-  document.getElementById("qr").oninput=e=>{ S.ui.qRegra=e.target.value; verRegras(); };
+      </div>`).join("")||'<div class="hint">Sem regras com esse texto.</div>'}</div>
+      ${lista.length>120?`<div class="hint">A mostrar as primeiras 120 de ${lista.length}.</div>`:""}`;
+    document.querySelectorAll("[data-edit-r]").forEach(d=>d.onclick=()=>editRegra(d.dataset.editR));
+    const mover=(id,delta)=>{ const k=S.regras.findIndex(r=>r.id===id); const j2=k+delta;
+      if(k<0||j2<0||j2>=S.regras.length) return;
+      const [x]=S.regras.splice(k,1); S.regras.splice(j2,0,x); save(); desenhar(); };
+    document.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>mover(b.dataset.up,-1));
+    document.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>mover(b.dataset.down,1));
+  };
+  campo.oninput=()=>{ S.ui.qRegra=campo.value; desenhar(); };
   document.getElementById("nr").onclick=()=>editRegra(null);
-  document.querySelectorAll("[data-edit-r]").forEach(d=>d.onclick=()=>editRegra(d.dataset.editR));
-  const mover=(id,delta)=>{ const i=S.regras.findIndex(r=>r.id===id); const j=i+delta;
-    if(i<0||j<0||j>=S.regras.length) return;
-    const [x]=S.regras.splice(i,1); S.regras.splice(j,0,x); save(); verRegras(); };
-  document.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>mover(b.dataset.up,-1));
-  document.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>mover(b.dataset.down,1));
+  desenhar();
 }
 function editRegra(id){
   const r = id ? S.regras.find(x=>x.id===id) : null;
@@ -1398,6 +1453,9 @@ function viewDados(){
       <div class="hint">${(()=>{const s=new Set(); S.movimentos.forEach(m=>{if(m.sub)s.add(m.sub)}); S.regras.forEach(r=>{if(r.s)s.add(r.s)}); const n=S.movimentos.filter(m=>m.sub).length; return s.size?`${s.size} subcategorias em uso, em ${n} movimentos.`:"Sem subcategorias em uso.";})()}</div>
       <div class="bar"><button id="limparSub">Limpar subcategorias</button></div>
       <div class="hint">Apaga a subcategoria de todos os movimentos e regras. As categorias e as classificações não são afetadas.</div></div>
+    <div class="card"><b>Reembolsos</b>
+      <div class="hint">Procura entradas por associar com uma despesa anterior de valor compatível, igual ou dividido por várias pessoas.</div>
+      <div class="bar"><button id="verReemb">Procurar reembolsos prováveis</button></div></div>
     <div class="card"><b>Duplicados</b>
       <div class="hint">Procura movimentos repetidos na mesma conta, com a mesma descrição e valor.</div>
       <div class="bar"><button id="verDup">Procurar duplicados</button></div></div>
@@ -1421,6 +1479,7 @@ function viewDados(){
     r.onload=()=>{ try{ S=JSON.parse(r.result); migrate(); save(); render(); alert("Cópia importada."); }catch(err){ alert("Ficheiro inválido."); } };
     r.readAsText(f);
   };
+  document.getElementById("verReemb").onclick=()=>verSugestoesReembolso();
   document.getElementById("verDup").onclick=()=>verDuplicados();
   document.getElementById("verRegras").onclick=()=>verRegras();
   document.getElementById("novaRegra").onclick=()=>editRegra(null);
