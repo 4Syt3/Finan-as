@@ -1214,6 +1214,75 @@ function viewContas(){
   document.querySelectorAll("[data-nm]").forEach(b=>b.onclick=()=>novoMovimento(b.dataset.nm));
 }
 
+function usosRegra(id){
+  const i=S.regras.findIndex(r=>r.id===id); if(i<0) return 0;
+  let n=0;
+  for(const m of S.movimentos){ if(m.manual) continue; const r=aplicarRegras(m.desc,m.data); if(r&&r.id===id) n++; }
+  return n;
+}
+function verRegras(){
+  S.ui.qRegra=S.ui.qRegra||"";
+  const q=S.ui.qRegra.toLowerCase();
+  const lista=S.regras.map((r,i)=>({r,i})).filter(({r})=>!q || (r.p||"").toLowerCase().includes(q) || (r.c||"").toLowerCase().includes(q));
+  openSheet(`<h2 style="margin:0 0 6px">Regras</h2>
+    <div class="hint">A ordem conta: vale a primeira que corresponder. Use as setas para subir ou descer uma regra.</div>
+    <input type="text" id="qr" placeholder="Procurar regra…" value="${esc(S.ui.qRegra)}">
+    <div class="bar"><button class="primary" id="nr">Nova regra</button><button onclick="closeSheet()">Fechar</button></div>
+    <div class="list" style="margin-top:10px">${lista.slice(0,120).map(({r,i})=>`
+      <div class="mv" style="align-items:center">
+        <div class="d" data-edit-r="${esc(r.id)}">
+          <div class="t">${esc(r.p)}</div>
+          <div class="sm mut">${esc(r.c)}${r.s?" · "+esc(r.s):""}${r.desde?" · desde "+esc(r.desde):""} · posição ${i+1}</div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button data-up="${esc(r.id)}" style="height:30px;line-height:28px;padding:0 9px">↑</button>
+          <button data-down="${esc(r.id)}" style="height:30px;line-height:28px;padding:0 9px">↓</button>
+        </div>
+      </div>`).join("")||'<div class="hint">Sem regras.</div>'}</div>
+    ${lista.length>120?`<div class="hint">A mostrar as primeiras 120 de ${lista.length}.</div>`:""}`);
+  document.getElementById("qr").oninput=e=>{ S.ui.qRegra=e.target.value; verRegras(); };
+  document.getElementById("nr").onclick=()=>editRegra(null);
+  document.querySelectorAll("[data-edit-r]").forEach(d=>d.onclick=()=>editRegra(d.dataset.editR));
+  const mover=(id,delta)=>{ const i=S.regras.findIndex(r=>r.id===id); const j=i+delta;
+    if(i<0||j<0||j>=S.regras.length) return;
+    const [x]=S.regras.splice(i,1); S.regras.splice(j,0,x); save(); verRegras(); };
+  document.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>mover(b.dataset.up,-1));
+  document.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>mover(b.dataset.down,1));
+}
+function editRegra(id){
+  const r = id ? S.regras.find(x=>x.id===id) : null;
+  const n = r ? usosRegra(r.id) : 0;
+  openSheet(`<h2 style="margin:0 0 4px">${r?"Editar regra":"Nova regra"}</h2>
+    ${r?`<div class="hint">Classifica ${n} movimentos neste momento.</div>`:`<div class="hint">A regra entra no topo da lista e é aplicada a todo o histórico, exceto aos movimentos classificados à mão.</div>`}
+    <label>Texto contido na descrição</label><input type="text" id="er" value="${esc(r?r.p:"")}">
+    <div class="hint" id="ern"></div>
+    ${selGrupoCat("ern1","erc",r?r.c:"Por rever")}
+    <label>Subcategoria</label><input type="text" id="ers" list="ersubl" value="${esc(r&&r.s?r.s:"")}">
+    <datalist id="ersubl"></datalist>
+    <label>Válida a partir de (opcional)</label><input type="date" id="erd" value="${r&&r.desde?r.desde:""}">
+    <div class="bar"><button class="primary" id="erok">Guardar</button>
+      ${r?`<button id="erdel">Apagar</button>`:""}<button onclick="closeSheet()">Cancelar</button></div>`);
+  ligarGrupoCat("ern1","erc","ersubl");
+  const el=document.getElementById("er");
+  const conta=()=>{ const v=el.value.trim();
+    document.getElementById("ern").textContent = v ? (S.movimentos.filter(m=>m.desc.toLowerCase().includes(v.toLowerCase())).length+" movimentos contêm este texto.") : "Escreva o texto a procurar."; };
+  el.oninput=conta; conta();
+  document.getElementById("erok").onclick=()=>{
+    const p=el.value.trim(); if(!p) return;
+    const dados={p, c:document.getElementById("erc").value, s:document.getElementById("ers").value.trim(), desde:document.getElementById("erd").value||null};
+    if(r) Object.assign(r,dados); else S.regras.unshift({id:uid("r"),...dados});
+    let k=0; for(const m of S.movimentos){ if(m.manual) continue; const rr=aplicarRegras(m.desc,m.data);
+      if(rr){ if(m.cat!==rr.c||m.sub!==(rr.s||"")) k++; m.cat=rr.c; m.sub=rr.s||""; } else { if(m.cat!=="Por rever") k++; m.cat="Por rever"; m.sub=""; } }
+    save(); closeSheet(); render(); alert("Regra guardada. "+k+" movimentos mudaram de classificação.");
+  };
+  const dl=document.getElementById("erdel"); if(dl) dl.onclick=()=>{
+    if(!confirm("Apagar a regra? Os movimentos que ela classificava passam a seguir as outras regras ou a ficar por rever.")) return;
+    S.regras=S.regras.filter(x=>x.id!==r.id);
+    for(const m of S.movimentos){ if(m.manual) continue; const rr=aplicarRegras(m.desc,m.data);
+      if(rr){ m.cat=rr.c; m.sub=rr.s||""; } else { m.cat="Por rever"; m.sub=""; } }
+    save(); closeSheet(); render();
+  };
+}
 function editCat(nome){
   const c = nome ? S.categorias.find(x=>x.nome===nome) : null;
   const usos = nome ? S.movimentos.filter(m=>m.cat===nome).length : 0;
@@ -1332,8 +1401,8 @@ function viewDados(){
     <div class="card"><b>Duplicados</b>
       <div class="hint">Procura movimentos repetidos na mesma conta, com a mesma descrição e valor.</div>
       <div class="bar"><button id="verDup">Procurar duplicados</button></div></div>
-    <div class="card"><b>Regras</b><div class="hint">${S.regras.length} regras de classificação. Crie novas a partir de qualquer movimento, em "Criar regra".</div>
-      <div class="bar"><button id="reaplicar">Reaplicar a tudo</button></div></div>
+    <div class="card"><b>Regras</b><div class="hint">${S.regras.length} regras de classificação. Vale a primeira da lista cujo texto apareça na descrição.</div>
+      <div class="bar"><button id="verRegras">Ver e editar</button><button id="novaRegra">Nova regra</button><button id="reaplicar">Reaplicar a tudo</button></div></div>
     ${S.ui.erro?`<div class="card" style="background:var(--warn);color:var(--warnink);border-color:transparent"><b>Último erro</b><div class="hint" style="color:inherit">${esc(S.ui.erro)}</div>
       <div class="bar"><button id="errclr">Limpar</button></div></div>`:""}
     <div class="card"><b>Este dispositivo</b><div class="hint">${S.movimentos.length} movimentos, ${S.envelopes.length} envelopes, ${tagsExistentes().length} tags.<br>
@@ -1353,6 +1422,8 @@ function viewDados(){
     r.readAsText(f);
   };
   document.getElementById("verDup").onclick=()=>verDuplicados();
+  document.getElementById("verRegras").onclick=()=>verRegras();
+  document.getElementById("novaRegra").onclick=()=>editRegra(null);
   document.getElementById("novaCat").onclick=()=>editCat(null);
   document.getElementById("verCats").onclick=()=>{
     openSheet(`<h2 style="margin:0 0 6px">Categorias</h2>
