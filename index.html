@@ -1135,12 +1135,12 @@ function escolherDespesa(m){
     const usado=parcelas.reduce((a,b)=>a+b,0);
     document.getElementById("cinfo").innerHTML=`Entrada de ${EUR(m.valor)} em ${fdate(m.data)}. Por atribuir: <b>${EUR(sobraInicial())}</b>.`
       + (sel.size?` Selecionadas ${sel.size}, a atribuir ${EUR(usado)}${falta>0.01?`, sobram ${EUR(falta)}`:""}.`:"")
-      + ` Mostra despesas de 30 dias depois a 90 dias antes; escreva para procurar em todo o histórico.`;
+      + ` Mostra despesas de 30 dias depois a 90 dias antes, da mais recente para a mais antiga; escreva para procurar em todo o histórico.`;
   };
   const draw=()=>{
     const q=(document.getElementById("cq").value||"").toLowerCase();
     const fonte = q ? base.filter(e=>e.desc.toLowerCase().includes(q)) : base.filter(dentro);
-    const ms=fonte.sort((a,b)=> Math.abs(dias(a.data,m.data))-Math.abs(dias(b.data,m.data))).slice(0,40);
+    const ms=fonte.sort((a,b)=> a.data<b.data?1:a.data>b.data?-1:0).slice(0,40);
     document.getElementById("clist").innerHTML=ms.map(e=>{
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
       const d=dias(e.data,m.data);
