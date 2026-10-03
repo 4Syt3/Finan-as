@@ -1125,7 +1125,7 @@ function escolherDespesa(m){
   const sobraInicial=()=>Math.round((m.valor-reembTotal(m))*100)/100;
   const jaUsadas=new Set((m.reemb||[]).map(r=>r.mov));
   const base=S.movimentos.filter(e=> e.valor<0 && !jaUsadas.has(e.id) && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
-  const dentro=e=>{ const d=dias(e.data,m.data); return d>=-30 && d<=90; };
+  const dentro=e=>{ const d=dias(e.data,m.data); return d>=-30 && d<=180; };
   const sel=new Set();
   openSheet(`<h2 style="margin:0 0 4px">Despesas reembolsadas por esta entrada</h2>
     <div class="hint" id="cinfo"></div>
@@ -1142,13 +1142,14 @@ function escolherDespesa(m){
     const usado=parcelas.reduce((a,b)=>a+b,0);
     document.getElementById("cinfo").innerHTML=`Entrada de ${EUR(m.valor)} em ${fdate(m.data)}. Por atribuir: <b>${EUR(sobraInicial())}</b>.`
       + (sel.size?` Selecionadas ${sel.size}, a atribuir ${EUR(usado)}${falta>0.01?`, sobram ${EUR(falta)}`:""}.`:"")
-      + ` Mostra despesas de 30 dias depois a 90 dias antes, da mais recente para a mais antiga; escreva para procurar em todo o histórico.`;
+      + ` Mostra despesas de 30 dias depois a 180 dias antes, da mais recente para a mais antiga; escreva para procurar em todo o histórico.`;
   };
   const draw=()=>{
     const q=(document.getElementById("cq").value||"").toLowerCase();
     const fonte = q ? base.filter(e=>e.desc.toLowerCase().includes(q)) : base.filter(dentro);
-    const ms=fonte.sort((a,b)=> a.data<b.data?1:a.data>b.data?-1:0).slice(0,40);
-    document.getElementById("clist").innerHTML=ms.map(e=>{
+    const ordenadas=fonte.sort((a,b)=> a.data<b.data?1:a.data>b.data?-1:0);
+    const ms=ordenadas.slice(0,150);
+    document.getElementById("clist").innerHTML=(ordenadas.length>150?`<div class="hint">A mostrar as 150 mais recentes de ${ordenadas.length}. Escreva para filtrar.</div>`:"")+ms.map(e=>{
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
       const d=dias(e.data,m.data);
       return `<div class="mv" data-e="${e.id}" style="${sel.has(e.id)?"background:var(--chip)":""}">
@@ -1194,7 +1195,7 @@ function escolherReembolsos(e){
     <label>Procurar</label><input type="text" id="rq" placeholder="nome da entrada…">
     <div class="list" id="rlist2"></div>
     <div class="bar"><button class="primary" id="rok">Associar selecionados</button><button onclick="closeSheet()">Fechar</button></div>
-    <div class="hint">Toque para selecionar vários. Cada entrada entra com o valor que tiver por atribuir, até se esgotar o valor da despesa.</div>`);
+    <div class="hint">Ordenadas pela proximidade à data da despesa. Toque para selecionar vários. Cada entrada entra com o valor que tiver por atribuir, até se esgotar o valor da despesa.</div>`);
   const info=()=>{
     let falta=faltaDe(); let usado=0;
     [...sel].forEach(id=>{ const x=byId(id); const s=Math.round((x.valor-reembTotal(x))*100)/100;
@@ -1205,13 +1206,15 @@ function escolherReembolsos(e){
   const draw=()=>{
     const q=(document.getElementById("rq").value||"").toLowerCase();
     const fonte = q ? base.filter(x=>x.desc.toLowerCase().includes(q)) : base.filter(dentro);
-    const ms=fonte.sort((a,b)=> a.data<b.data?1:a.data>b.data?-1:0).slice(0,40);
-    document.getElementById("rlist2").innerHTML=ms.map(x=>{
+    const ordenadas=fonte.sort((a,b)=> Math.abs(dias(e.data,a.data))-Math.abs(dias(e.data,b.data))
+      || (a.data<b.data?1:-1));
+    const ms=ordenadas.slice(0,150);
+    document.getElementById("rlist2").innerHTML=(ordenadas.length>150?`<div class="hint">A mostrar as 150 mais próximas de ${ordenadas.length}. Escreva para filtrar.</div>`:"")+ms.map(x=>{
       const s=Math.round((x.valor-reembTotal(x))*100)/100;
       return `<div class="mv" data-r="${x.id}" style="${sel.has(x.id)?"background:var(--chip)":""}">
         <div style="width:22px;flex:0 0 22px;font-size:17px">${sel.has(x.id)?"☑":"☐"}</div>
         <div class="d"><div class="t">${esc(x.desc)}</div>
-          <div class="sm mut">${fdate(x.data)} · ${esc(x.conta)} · por atribuir ${EUR(s)}</div></div>
+          <div class="sm mut">${fdate(x.data)} · ${(()=>{const d=dias(e.data,x.data); return d===0?"mesmo dia":(d>0?d+(d===1?" dia depois":" dias depois"):(-d)+((-d)===1?" dia antes":" dias antes"));})()} · ${esc(x.conta)} · por atribuir ${EUR(s)}</div></div>
         <div class="v pos">${EUR(x.valor)}</div></div>`;}).join("")
       ||'<div class="hint">Sem entradas por associar neste intervalo. Escreva o nome para procurar em todo o histórico.</div>';
     document.querySelectorAll("[data-r]").forEach(d=>d.onclick=()=>{
