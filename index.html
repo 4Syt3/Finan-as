@@ -1008,7 +1008,7 @@ function sugestoesReembolso(){
     let melhor=null;
     for(const e of despesas){
       const d=dias(e.data,m.data);
-      if(d<-15 || d>90) continue;
+      if(d<-30 || d>90) continue;
       const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
       const n=Math.round(falta/sobra);
       let tipo=null, score=null;
@@ -1020,8 +1020,12 @@ function sugestoesReembolso(){
     }
     if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra});
   }
-  return out.sort((a,b)=>{ const ta=a.tipo==="total"?0:1, tb=b.tipo==="total"?0:1;
-    return ta!==tb ? ta-tb : b.sobra-a.sobra; });
+  return out.sort((a,b)=>{
+    const ta=a.tipo==="total"?0:1, tb=b.tipo==="total"?0:1;
+    if(ta!==tb) return ta-tb;
+    const da=Math.abs(dias(a.e.data,a.m.data)), db=Math.abs(dias(b.e.data,b.m.data));
+    if(da!==db) return da-db;
+    return b.sobra-a.sobra; });
 }
 let reembFeitos=new Set();
 function verSugestoesReembolso(reiniciar){
@@ -1029,12 +1033,12 @@ function verSugestoesReembolso(reiniciar){
   const l=sugestoesReembolso().filter(x=>!reembFeitos.has(x.m.id) && !reembFeitos.has(x.e.id));
   const descartadas=Object.keys(S.reembNao||{}).length;
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
-    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. "Igual" é o mesmo valor; "parte N" é uma conta dividida por N pessoas. Confirme uma a uma.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${reembFeitos.size?`${Math.round(reembFeitos.size/2)} associações feitas nesta sessão. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. Primeiro as de valor igual e data mais próxima. A despesa pode ser até 90 dias antes ou 30 dias depois do reembolso. "Parte N" é uma conta dividida por N pessoas. Confirme uma a uma.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
     ${l.slice(0,40).map((x,i)=>`<div class="card">
       <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
         <div class="v pos">${EUR(x.sobra)}</div></div>
       <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
-        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":esc(x.tipo)}</div></div>
+        <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":esc(x.tipo)} · ${(()=>{const d=dias(x.e.data,x.m.data); return d===0?"mesmo dia":(d>0?d+" dias antes":(-d)+" dias depois");})()}</div></div>
         <div class="v neg">${EUR(x.e.valor)}</div></div>
       <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button>
         <button data-nao-r="${i}">Descartar</button>
@@ -1068,11 +1072,11 @@ function escolherDespesa(m){
   const sobra=Math.round((m.valor-reembTotal(m))*100)/100;
   const jaUsadas=new Set((m.reemb||[]).map(r=>r.mov));
   const base=S.movimentos.filter(e=> e.valor<0 && !jaUsadas.has(e.id) && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
-  const dentro=e=>{ const d=dias(e.data,m.data); return d>=-15 && d<=90; };
+  const dentro=e=>{ const d=dias(e.data,m.data); return d>=-30 && d<=90; };
   const cand=base.filter(dentro).sort((a,b)=> Math.abs(dias(a.data,m.data))-Math.abs(dias(b.data,m.data))).slice(0,60);
   openSheet(`<h2 style="margin:0 0 4px">Que despesa está a ser reembolsada?</h2>
     <div class="hint">Entrada de ${EUR(m.valor)} em ${fdate(m.data)}. Por atribuir: ${EUR(sobra)}. Pode repartir por várias despesas e por valores parciais.
-    Mostra despesas dos 90 dias anteriores e dos 15 dias seguintes, para o caso de a despesa só ser lançada depois. Se procurar por nome, procura em todo o histórico.</div>
+    Mostra despesas dos 90 dias anteriores e dos 30 dias seguintes, para o caso de a despesa só ser lançada depois. Se procurar por nome, procura em todo o histórico.</div>
     <label>Procurar</label><input type="text" id="cq" placeholder="nome da despesa…">
     <div class="list" id="clist"></div>
     <div class="bar"><button onclick="closeSheet()">Fechar</button></div>`);
