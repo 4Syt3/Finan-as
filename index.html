@@ -174,6 +174,7 @@ function load(){
     envelopes: [],
     ajustes: [],
     dupOk: {},
+    reembNao: {},
     tags: [],
     ui: {tab:"geral", per:"mes", de:null, ate:null},
     novo:true,
@@ -182,7 +183,7 @@ function load(){
   };
   save();
 }
-function migrate(){ S.dupOk=S.dupOk||{}; if(!S.v2){ S.v2=true; S.ui=S.ui||{}; S.ui.per="mes"; } S.cfg=S.cfg||{desde:"2026-01-01"}; if(S.cfg.autoDrive===undefined) S.cfg.autoDrive=false; if(!S.cfg.pasta) S.cfg.pasta="Financas App"; S.drive=S.drive||{ultima:null,ficheiro:null,id:null}; S.ajustes=S.ajustes||[];
+function migrate(){ S.dupOk=S.dupOk||{}; S.reembNao=S.reembNao||{}; if(!S.v2){ S.v2=true; S.ui=S.ui||{}; S.ui.per="mes"; } S.cfg=S.cfg||{desde:"2026-01-01"}; if(S.cfg.autoDrive===undefined) S.cfg.autoDrive=false; if(!S.cfg.pasta) S.cfg.pasta="Financas App"; S.drive=S.drive||{ultima:null,ficheiro:null,id:null}; S.ajustes=S.ajustes||[];
   (S.movimentos||[]).forEach(m=>{ if(!m.reemb) m.reemb = m.reembolsoDe?[{mov:m.reembolsoDe,valor:m.valor}]:[]; }); S.envelopes=S.envelopes||[]; S.tags=S.tags||[]; S.ui=S.ui||{tab:"geral",per:"ano"}; }
 function save(){ try{ S.dirty=true; S.novo=false; S.alterado=new Date().toISOString();
   const txt=JSON.stringify(S); localStorage.setItem(KEY, txt); idbGuardar(txt); agendarDrive(); }catch(e){ alert("Não foi possível guardar neste dispositivo. Exporte uma cópia em Dados."); } }
@@ -1015,7 +1016,7 @@ function sugestoesReembolso(){
       else if(n>=2 && n<=12 && Math.abs(falta/n-sobra)<=0.02 && d>=-3 && d<=10
               && entradas.filter(y=>Math.abs(y.valor-m.valor)<0.02 && Math.abs(dias(y.data,m.data))<=7).length>=2){
         tipo="parte "+n; score=Math.abs(d)+100; }
-      if(tipo && (!melhor || score<melhor.score)) melhor={e,tipo,score,d};
+      if(tipo && !(S.reembNao||{})[m.id+"|"+e.id] && (!melhor || score<melhor.score)) melhor={e,tipo,score,d};
     }
     if(melhor) out.push({m, e:melhor.e, tipo:melhor.tipo, sobra});
   }
@@ -1024,21 +1025,32 @@ function sugestoesReembolso(){
 }
 function verSugestoesReembolso(){
   const l=sugestoesReembolso();
+  const descartadas=Object.keys(S.reembNao||{}).length;
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos prováveis</h2>
-    <div class="hint">${l.length?`${l.length} entradas com uma despesa de valor compatível. "Igual" é o mesmo valor; "parte N" é uma conta dividida por N pessoas. Confirme uma a uma.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
+    <div class="hint">${descartadas?`${descartadas} sugestões descartadas não voltam a aparecer. `:""}${l.length?`${l.length} entradas com uma despesa de valor compatível. "Igual" é o mesmo valor; "parte N" é uma conta dividida por N pessoas. Confirme uma a uma.`:"Não encontrei entradas por associar com despesa de valor compatível."}</div>
     ${l.slice(0,40).map((x,i)=>`<div class="card">
       <div class="row"><div><b>${esc(x.m.desc.slice(0,38))}</b><div class="sm mut">${fdate(x.m.data)} · ${esc(x.m.conta)}</div></div>
         <div class="v pos">${EUR(x.sobra)}</div></div>
       <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
         <div><div class="t">${esc(x.e.desc.slice(0,38))}</div><div class="sm mut">${fdate(x.e.data)} · ${esc(x.e.conta)} · ${esc(x.e.cat)} · ${x.tipo==="total"?"valor igual":esc(x.tipo)}</div></div>
         <div class="v neg">${EUR(x.e.valor)}</div></div>
-      <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button><button data-abrir-r="${esc(x.m.id)}">Abrir entrada</button></div>
+      <div class="bar"><button class="primary" data-ok-r="${i}">Associar</button>
+        <button data-nao-r="${i}">Descartar</button>
+        <button data-abrir-r="${esc(x.m.id)}">Abrir entrada</button></div>
     </div>`).join("")}
-    ${l.length?`<div class="bar"><button id="assocTodas">Associar todas as iguais (${l.filter(x=>x.tipo==="total").length})</button><button onclick="closeSheet()">Fechar</button></div>`
-      :`<div class="bar"><button onclick="closeSheet()">Fechar</button></div>`}`);
+    ${l.length?`<div class="bar"><button id="assocTodas">Associar todas as iguais (${l.filter(x=>x.tipo==="total").length})</button>
+        ${descartadas?`<button id="repor">Repor descartadas (${descartadas})</button>`:""}<button onclick="closeSheet()">Fechar</button></div>`
+      :`<div class="bar">${descartadas?`<button id="repor">Repor descartadas (${descartadas})</button>`:""}<button onclick="closeSheet()">Fechar</button></div>`}`);
+  const rp=document.getElementById("repor"); if(rp) rp.onclick=()=>{
+    if(!confirm("Voltar a mostrar as "+descartadas+" sugestões descartadas?")) return;
+    S.reembNao={}; save(); verSugestoesReembolso(); };
   document.querySelectorAll("[data-ok-r]").forEach(b=>b.onclick=()=>{
     const x=l[+b.dataset.okR]; if(!x) return;
     x.m.reemb=x.m.reemb||[]; x.m.reemb.push({mov:x.e.id, valor:x.sobra}); x.m.manual=true;
+    save(); verSugestoesReembolso(); render(); });
+  document.querySelectorAll("[data-nao-r]").forEach(b=>b.onclick=()=>{
+    const x=l[+b.dataset.naoR]; if(!x) return;
+    S.reembNao=S.reembNao||{}; S.reembNao[x.m.id+"|"+x.e.id]=1;
     save(); verSugestoesReembolso(); render(); });
   document.querySelectorAll("[data-abrir-r]").forEach(b=>b.onclick=()=>{ closeSheet(); detalhe(b.dataset.abrirR); });
   const at=document.getElementById("assocTodas"); if(at) at.onclick=()=>{
