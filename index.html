@@ -83,7 +83,9 @@ nav.tabs .ico{display:block;font-size:17px;line-height:1.2}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
 .sheet.on{display:block}
 .sheet .in{position:absolute;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--card);border-radius:16px 16px 0 0;padding:0 14px calc(20px + env(safe-area-inset-bottom,0px))}
-.sheet .in>h2:first-child{position:sticky;top:0;z-index:5;background:var(--card);margin:0;padding:14px 44px 10px 0;border-bottom:1px solid var(--line)}
+.sheet .in>h2:first-child{position:sticky;top:0;z-index:5;background:var(--card);margin:0;padding:14px 44px 10px 0}
+.sheet .fixo{position:sticky;top:48px;z-index:4;background:var(--card);padding:0 0 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.sheet .fixo label{margin-top:0}
 .sheet .fecharX{position:sticky;top:0;float:right;z-index:6;height:34px;width:34px;padding:0;margin:10px 0 0 0;line-height:32px;text-align:center;font-size:17px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -588,7 +590,6 @@ function viewMovs(){
     <button id="bdatas" class="${on(f.per!=="mes")}">${esc(per)} ▾</button>
     <button id="bcats" class="${on(cat!=="Categorias")}">${esc(cat)} ▾</button>
     <button id="bcontas" class="${on(contasSel.length)}">${esc(contas)} ▾</button>
-    <button id="fsel" class="${f.selMode?"primary":""}">${f.selMode?"✓ Selecionar":"Selecionar"}</button>
     <button id="fnovo" class="primary">+ Movimento</button>
   </div>
   <div class="filters">
@@ -596,11 +597,10 @@ function viewMovs(){
     <button id="bval" class="${on(temVal)}">${esc(val)} ▾</button>
     <button id="fclear">Limpar filtros</button>
   </div>
-  <div class="wrap"><div id="mvsum" class="card"></div></div>
+  <div class="wrap">${S.ui.selMode?"":'<div class="hint" style="margin:0 0 4px">Mantenha o dedo sobre um movimento para selecionar vários.</div>'}<div id="mvsum" class="card"></div></div>
   <div class="wrap" id="mvlist"></div>`;
 
   document.getElementById("fq").oninput=e=>{ S.ui.fQ=e.target.value; save(); listar(); };
-  document.getElementById("fsel").onclick=()=>{ S.ui.selMode=!S.ui.selMode; S.ui.sel=[]; save(); render(); };
   document.getElementById("fnovo").onclick=()=>novoMovimento(contasSel.length===1?contasSel[0]:null);
   document.getElementById("fclear").onclick=()=>{ Object.assign(S.ui,{fQ:"",fCat:"(todas)",fGrupo:"(todos)",fSub:"",fContas:[],fEstado:"",fSinal:"todos",fMin:"",fMax:"",fTag:"(todas)"}); save(); render(); };
 
@@ -693,11 +693,15 @@ function listar(){
   const ms=filtrados();
   const t=totais(ms.flatMap(m=>componentes(m)));
   const sel=S.ui.sel||[];
+  const selMovs=sel.map(id=>byId(id)).filter(Boolean);
+  const soEntradas=selMovs.length>0 && selMovs.every(m=>m.valor>0);
   document.getElementById("mvsum").innerHTML = S.ui.selMode
     ? `<div class="row"><div><b>${sel.length}</b> selecionados</div>
-        <div class="sm">${EUR(ms.filter(m=>sel.includes(m.id)).reduce((a,m)=>a+m.valor,0))}</div></div>
+        <div class="sm">${EUR(selMovs.reduce((a,m)=>a+m.valor,0))}</div></div>
        <div class="bar"><button class="primary" id="bcls">Classificar</button><button id="btag">Tag</button>
-         <button id="btodos">Todos (${ms.length})</button><button id="bnada">Nenhum</button></div>`
+         ${soEntradas?`<button id="breemb">Associar a uma despesa</button>`:""}
+         <button id="btodos">Todos (${ms.length})</button><button id="bnada">Nenhum</button>
+         <button id="bsair">Sair da seleção</button></div>`
     : (()=>{ const ent=ms.filter(m=>m.valor>0).reduce((a,m)=>a+m.valor,0);
              const sai=ms.filter(m=>m.valor<0).reduce((a,m)=>a+m.valor,0);
              const interno=ms.some(m=>tipoBase(m)==="Transferência interna");
@@ -743,12 +747,26 @@ function listar(){
   }
   html=html.replace(/^<\/div>/,"")+"</div>";
   document.getElementById("mvlist").innerHTML=html + (ms.length>600?`<div class="hint">A mostrar os 600 mais recentes.</div>`:"");
-  document.querySelectorAll(".mv").forEach(d=>d.onclick=()=>{
-    if(!S.ui.selMode){ detalhe(d.dataset.id); return; }
-    S.ui.sel=S.ui.sel||[];
-    const i=S.ui.sel.indexOf(d.dataset.id);
-    if(i>=0) S.ui.sel.splice(i,1); else S.ui.sel.push(d.dataset.id);
-    save(); listar();
+  document.querySelectorAll(".mv").forEach(d=>{
+    let tmr=null, longo=false;
+    const marcar=()=>{ S.ui.sel=S.ui.sel||[];
+      const i=S.ui.sel.indexOf(d.dataset.id);
+      if(i>=0) S.ui.sel.splice(i,1); else S.ui.sel.push(d.dataset.id);
+      if(!S.ui.sel.length) S.ui.selMode=false;
+      save(); listar(); };
+    const iniciar=()=>{ longo=false; clearTimeout(tmr); tmr=setTimeout(()=>{ longo=true;
+      if(navigator.vibrate) try{ navigator.vibrate(15); }catch(e){}
+      S.ui.selMode=true; marcar(); }, 450); };
+    const parar=()=>clearTimeout(tmr);
+    d.addEventListener("pointerdown",iniciar);
+    d.addEventListener("pointerup",parar);
+    d.addEventListener("pointerleave",parar);
+    d.addEventListener("pointercancel",parar);
+    d.addEventListener("pointermove",parar);
+    d.addEventListener("contextmenu",e=>e.preventDefault());
+    d.onclick=()=>{ if(longo){ longo=false; return; }
+      if(!S.ui.selMode){ detalhe(d.dataset.id); return; }
+      marcar(); };
   });
   if(S.ui.selMode){
     const ids=ms.map(m=>m.id);
@@ -756,6 +774,8 @@ function listar(){
     document.getElementById("bnada").onclick=()=>{ S.ui.sel=[]; save(); listar(); };
     document.getElementById("bcls").onclick=()=>classificarVarios();
     document.getElementById("btag").onclick=()=>tagVarios();
+    document.getElementById("bsair").onclick=()=>{ S.ui.selMode=false; S.ui.sel=[]; save(); render(); };
+    const br=document.getElementById("breemb"); if(br) br.onclick=()=>associarVariosADespesa();
   }
 }
 const TIPOS_CONTA=["Conta à ordem","Conta ordenado","Conta poupança","Depósito a prazo","PPR","Investimentos","Cartão de crédito","Dinheiro","Outro"];
@@ -795,6 +815,44 @@ function opcoesSub(cat){ return subsDe(cat).map(x=>`<option>${esc(x)}</option>`)
 function tagsExistentes(){ const s=new Set(); S.movimentos.forEach(m=>{ if(m.tag) s.add(m.tag); }); S.tags.forEach(t=>s.add(t)); return [...s].sort(); }
 
 /* ---------- detalhe do movimento ---------- */
+function associarVariosADespesa(){
+  const sel=(S.ui.sel||[]).map(id=>byId(id)).filter(m=>m&&m.valor>0);
+  if(!sel.length){ alert("Selecione primeiro as entradas."); return; }
+  const totalSel=Math.round(sel.reduce((a,m)=>a+Math.round((m.valor-reembTotal(m))*100)/100,0)*100)/100;
+  const dataRef=sel.map(m=>m.data).sort()[0];
+  const base=S.movimentos.filter(e=> e.valor<0 && (Math.abs(e.valor)-reembolsadoDe(e.id))>0.01);
+  openSheet(`<h2 style="margin:0 0 4px">Associar ${sel.length} entradas a uma despesa</h2>
+    <div class="hint">Total por atribuir nas entradas selecionadas: <b>${EUR(totalSel)}</b>. Escolha a despesa; cada entrada entra com o que tiver por atribuir, até se esgotar o valor da despesa.</div>
+    <div class="fixo"><input type="text" id="aq" placeholder="Procurar despesa…"></div>
+    <div class="list" id="alist"></div>
+    <div class="bar"><button onclick="closeSheet()">Fechar</button></div>`);
+  const draw=()=>{
+    const q=(document.getElementById("aq").value||"").toLowerCase();
+    const fonte=q ? base.filter(e=>e.desc.toLowerCase().includes(q))
+      : base.filter(e=>{ const d=dias(e.data,dataRef); return d>=-30 && d<=180; });
+    const ms=fonte.sort((a,b)=> Math.abs(dias(a.data,dataRef))-Math.abs(dias(b.data,dataRef))).slice(0,150);
+    document.getElementById("alist").innerHTML=ms.map(e=>{
+      const falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100;
+      return `<div class="mv" data-ae="${e.id}"><div class="d"><div class="t">${esc(e.desc)}</div>
+        <div class="sm mut">${fdate(e.data)} · ${esc(e.conta)} · ${esc(e.cat)} · por reembolsar ${EUR(falta)}</div></div>
+        <div class="v neg">${EUR(e.valor)}</div></div>`;}).join("")
+      ||'<div class="hint">Sem despesas compatíveis. Escreva o nome para procurar em todo o histórico.</div>';
+    document.querySelectorAll("[data-ae]").forEach(d=>d.onclick=()=>{
+      const e=byId(d.dataset.ae); if(!e) return;
+      let falta=Math.round((Math.abs(e.valor)-reembolsadoDe(e.id))*100)/100; let n=0;
+      for(const m of sel){
+        if(falta<=0.01) break;
+        const s=Math.round((m.valor-reembTotal(m))*100)/100;
+        const v=Math.min(falta,s); if(v<=0.01) continue;
+        m.reemb=m.reemb||[]; m.reemb.push({mov:e.id, valor:v}); m.manual=true; n++;
+        falta=Math.round((falta-v)*100)/100;
+      }
+      S.ui.sel=[]; S.ui.selMode=false; save(); closeSheet(); render();
+      alert(n+" entradas associadas a "+e.desc.slice(0,30)+"."+(falta>0.01?" Ficam "+EUR(falta)+" por reembolsar.":""));
+    });
+  };
+  document.getElementById("aq").oninput=draw; draw();
+}
 function classificarVarios(){
   const sel=S.ui.sel||[]; if(!sel.length){ alert("Selecione primeiro os movimentos."); return; }
   openSheet(`<h2 style="margin:0 0 4px">Classificar ${sel.length} movimentos</h2>
@@ -1130,8 +1188,8 @@ function escolherDespesa(m){
   const dentro=e=>{ const d=dias(e.data,m.data); return d>=-30 && d<=180; };
   const sel=new Set();
   openSheet(`<h2 style="margin:0 0 4px">Despesas reembolsadas por esta entrada</h2>
-    <div class="hint" id="cinfo"></div>
-    <label>Procurar</label><input type="text" id="cq" placeholder="nome da despesa…">
+    <div class="fixo"><div class="hint" id="cinfo"></div>
+      <input type="text" id="cq" placeholder="Procurar despesa…"></div>
     <div class="list" id="clist"></div>
     <div class="bar">
       <button class="primary" id="cok">Associar selecionadas</button>
@@ -1193,8 +1251,8 @@ function escolherReembolsos(e){
   const dentro=x=>{ const d=dias(e.data,x.data); return d>=-30 && d<=90; };
   const sel=new Set();
   openSheet(`<h2 style="margin:0 0 4px">Reembolsos desta despesa</h2>
-    <div class="hint" id="rinfo"></div>
-    <label>Procurar</label><input type="text" id="rq" placeholder="nome da entrada…">
+    <div class="fixo"><div class="hint" id="rinfo"></div>
+      <input type="text" id="rq" placeholder="Procurar entrada…"></div>
     <div class="list" id="rlist2"></div>
     <div class="bar"><button class="primary" id="rok">Associar selecionados</button><button onclick="closeSheet()">Fechar</button></div>
     <div class="hint">Ordenadas pela proximidade à data da despesa. Toque para selecionar vários. Cada entrada entra com o valor que tiver por atribuir, até se esgotar o valor da despesa.</div>`);
@@ -1436,8 +1494,8 @@ function verRegras(){
   S.ui.qRegra=S.ui.qRegra||"";
   openSheet(`<h2 style="margin:0 0 6px">Regras</h2>
     <div class="hint">A ordem conta: vale a primeira que corresponder. Use as setas para subir ou descer uma regra.</div>
-    <input type="text" id="qr" placeholder="Procurar regra…" value="${esc(S.ui.qRegra)}">
-    <div class="bar"><button class="primary" id="nr">Nova regra</button><button onclick="closeSheet()">Fechar</button></div>
+    <div class="fixo"><input type="text" id="qr" placeholder="Procurar regra…" value="${esc(S.ui.qRegra)}">
+      <div class="bar"><button class="primary" id="nr">Nova regra</button><button onclick="closeSheet()">Fechar</button></div></div>
     <div id="rlist" style="margin-top:10px"></div>`);
   const campo=document.getElementById("qr");
   const desenhar=()=>{
