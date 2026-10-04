@@ -82,7 +82,9 @@ nav.tabs .ico{display:block;font-size:17px;line-height:1.2}
 .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
 .sheet.on{display:block}
-.sheet .in{position:absolute;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--card);border-radius:16px 16px 0 0;padding:14px 14px calc(20px + env(safe-area-inset-bottom,0px))}
+.sheet .in{position:absolute;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--card);border-radius:16px 16px 0 0;padding:0 14px calc(20px + env(safe-area-inset-bottom,0px))}
+.sheet .in>h2:first-child{position:sticky;top:0;z-index:5;background:var(--card);margin:0;padding:14px 44px 10px 0;border-bottom:1px solid var(--line)}
+.sheet .fecharX{position:sticky;top:0;float:right;z-index:6;height:34px;width:34px;padding:0;margin:10px 0 0 0;line-height:32px;text-align:center;font-size:17px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -1776,7 +1778,12 @@ function parseGrid(g,fname){
 }
 
 /* ---------- sheet ---------- */
-function openSheet(html){ document.getElementById("sheetIn").innerHTML=html; document.getElementById("sheet").classList.add("on"); }
+function openSheet(html){
+  const el=document.getElementById("sheetIn");
+  el.innerHTML='<button class="fecharX" onclick="closeSheet()" title="Fechar">✕</button>'+html;
+  el.scrollTop=0;
+  document.getElementById("sheet").classList.add("on");
+}
 function closeSheet(){ document.getElementById("sheet").classList.remove("on"); }
 document.getElementById("sheet").onclick=e=>{ if(e.target.id==="sheet") closeSheet(); };
 
